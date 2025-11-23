@@ -1,4 +1,3 @@
-
 import { Post, Comment, Board, User, Notification, WikiPage, ChatMessage, ShopItem } from '../types';
 
 const STORAGE_KEYS = {
@@ -87,16 +86,23 @@ const SEED_POSTS: Post[] = [
   },
 ];
 
+// Helper to safely parse JSON
+const safeParse = <T>(key: string, fallback: T): T => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch (e) {
+    console.error(`Error parsing ${key} from localStorage`, e);
+    return fallback;
+  }
+};
+
 export const storage = {
   getBoards: (): Board[] => SEED_BOARDS,
 
   getPosts: (): Post[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.POSTS);
-    if (!data) {
-      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(SEED_POSTS));
-      return SEED_POSTS;
-    }
-    return JSON.parse(data);
+    const posts = safeParse<Post[]>(STORAGE_KEYS.POSTS, []);
+    return posts.length > 0 ? posts : SEED_POSTS;
   },
 
   savePost: (post: Post) => {
@@ -116,10 +122,7 @@ export const storage = {
      }
   },
 
-  getComments: (): Comment[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.COMMENTS);
-    return data ? JSON.parse(data) : [];
-  },
+  getComments: (): Comment[] => safeParse<Comment[]>(STORAGE_KEYS.COMMENTS, []),
 
   saveComment: (comment: Comment) => {
     const comments = storage.getComments();
@@ -149,10 +152,7 @@ export const storage = {
     }
   },
 
-  getSession: (): User | null => {
-    const data = localStorage.getItem(STORAGE_KEYS.SESSION);
-    return data ? JSON.parse(data) : null;
-  },
+  getSession: (): User | null => safeParse<User | null>(STORAGE_KEYS.SESSION, null),
 
   setSession: (user: User | null) => {
     if (user) {
@@ -209,14 +209,12 @@ export const storage = {
 
   // Notifications
   getNotifications: (userId: string): Notification[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-    const allnotes: Notification[] = data ? JSON.parse(data) : [];
+    const allnotes = safeParse<Notification[]>(STORAGE_KEYS.NOTIFICATIONS, []);
     return allnotes.filter(n => n.user_id === userId).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
   createNotification: (note: Partial<Notification>) => {
-    const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-    const allnotes: Notification[] = data ? JSON.parse(data) : [];
+    const allnotes = safeParse<Notification[]>(STORAGE_KEYS.NOTIFICATIONS, []);
     const newNote: Notification = {
       id: `noti-${Date.now()}-${Math.random()}`,
       user_id: note.user_id!,
@@ -231,18 +229,13 @@ export const storage = {
   },
 
   markNotificationsRead: (userId: string) => {
-    const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-    if (!data) return;
-    const allnotes: Notification[] = JSON.parse(data);
+    const allnotes = safeParse<Notification[]>(STORAGE_KEYS.NOTIFICATIONS, []);
     const updated = allnotes.map(n => n.user_id === userId ? { ...n, is_read: true } : n);
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
   },
 
   // Wiki
-  getWikiPages: (): WikiPage[] => {
-      const data = localStorage.getItem(STORAGE_KEYS.WIKI);
-      return data ? JSON.parse(data) : [];
-  },
+  getWikiPages: (): WikiPage[] => safeParse<WikiPage[]>(STORAGE_KEYS.WIKI, []),
   
   getWikiPage: (slug: string): WikiPage | undefined => {
       const pages = storage.getWikiPages();
@@ -261,10 +254,7 @@ export const storage = {
   },
 
   // Chat
-  getChatMessages: (): ChatMessage[] => {
-      const data = localStorage.getItem(STORAGE_KEYS.CHAT);
-      return data ? JSON.parse(data) : [];
-  },
+  getChatMessages: (): ChatMessage[] => safeParse<ChatMessage[]>(STORAGE_KEYS.CHAT, []),
 
   sendChatMessage: (msg: ChatMessage) => {
       const msgs = storage.getChatMessages();
