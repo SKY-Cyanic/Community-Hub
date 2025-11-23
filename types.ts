@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   username: string;
@@ -6,6 +7,13 @@ export interface User {
   level: number;
   exp: number; // Experience points
   points: number; // Currency
+  inventory: string[]; // Owned Item IDs
+  active_items: {
+    name_color?: string;
+    name_style?: 'normal' | 'bold';
+    badge?: string;
+  };
+  blocked_users: string[]; // Blocked User IDs
 }
 
 export interface Profile {
@@ -15,6 +23,11 @@ export interface Profile {
   created_at: string;
   level: number;
   exp?: number;
+  active_items?: {
+    name_color?: string;
+    name_style?: 'normal' | 'bold';
+    badge?: string;
+  };
 }
 
 export interface Board {
@@ -78,4 +91,31 @@ export interface Notification {
   link: string;
   is_read: boolean;
   created_at: string;
+}
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  type: 'color' | 'style' | 'badge';
+  value: string; // Hex code or class name
+  icon: string;
+}
+
+export interface WikiPage {
+  slug: string;
+  title: string;
+  content: string;
+  last_updated: string;
+  last_editor: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  user_id: string;
+  username: string;
+  text: string;
+  timestamp: string;
+  user_level: number;
 }

@@ -1,16 +1,15 @@
-import { Post, Board, Comment, User } from '../types';
+
+import { Post, Board, Comment, User, WikiPage } from '../types';
 import { storage } from './storage';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const api = {
   getBoards: async (): Promise<Board[]> => {
-    // await delay(100);
     return storage.getBoards();
   },
 
   getPosts: async (boardSlug?: string, page: number = 1): Promise<Post[]> => {
-    // await delay(200);
     let posts = storage.getPosts();
     
     if (boardSlug && boardSlug !== 'all' && boardSlug !== 'best') {
@@ -24,7 +23,6 @@ export const api = {
   },
 
   getPost: async (postId: string): Promise<Post | null> => {
-    // await delay(100);
     const posts = storage.getPosts();
     const post = posts.find(p => p.id === postId);
     
@@ -53,12 +51,14 @@ export const api = {
         id: user.id,
         username: user.username,
         created_at: new Date().toISOString(),
-        level: user.level
+        level: user.level,
+        active_items: user.active_items
       },
       comment_count: 0,
       is_hot: false,
       has_image: (postData.images && postData.images.length > 0) || false,
-      images: postData.images || []
+      images: postData.images || [],
+      poll: postData.poll
     };
     
     storage.savePost(newPost);
@@ -66,7 +66,6 @@ export const api = {
   },
 
   getComments: async (postId: string): Promise<Comment[]> => {
-    // await delay(100);
     const comments = storage.getComments();
     return comments.filter(c => c.post_id === postId);
   },
@@ -84,7 +83,8 @@ export const api = {
         id: user.id,
         username: user.username,
         created_at: new Date().toISOString(),
-        level: user.level
+        level: user.level,
+        active_items: user.active_items
       },
       depth: 0 // Calculated on render
     };
@@ -100,5 +100,15 @@ export const api = {
           else posts[postIndex].downvotes++;
           localStorage.setItem('k_community_posts', JSON.stringify(posts));
       }
+  },
+
+  // Wiki
+  getWikiPage: async (slug: string): Promise<WikiPage | undefined> => {
+      return storage.getWikiPage(slug);
+  },
+  
+  saveWikiPage: async (page: WikiPage): Promise<void> => {
+      await delay(300);
+      storage.saveWikiPage(page);
   }
 };

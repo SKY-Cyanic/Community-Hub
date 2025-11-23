@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -7,6 +8,8 @@ import BoardPage from './pages/BoardPage';
 import PostPage from './pages/PostPage';
 import WritePage from './pages/WritePage';
 import MyPage from './pages/MyPage';
+import ShopPage from './pages/ShopPage';
+import WikiPage from './pages/WikiPage';
 
 function App() {
   return (
@@ -19,6 +22,8 @@ function App() {
             <Route path="board/:boardId/:postId" element={<PostPage />} />
             <Route path="write" element={<WritePage />} />
             <Route path="mypage" element={<MyPage />} />
+            <Route path="shop" element={<ShopPage />} />
+            <Route path="wiki" element={<WikiPage />} />
           </Route>
         </Routes>
       </HashRouter>

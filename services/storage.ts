@@ -1,4 +1,5 @@
-import { Post, Comment, Board, User, Notification } from '../types';
+
+import { Post, Comment, Board, User, Notification, WikiPage, ChatMessage, ShopItem } from '../types';
 
 const STORAGE_KEYS = {
   POSTS: 'k_community_posts',
@@ -6,6 +7,8 @@ const STORAGE_KEYS = {
   USERS: 'k_community_users',
   SESSION: 'k_community_session',
   NOTIFICATIONS: 'k_community_notifications',
+  WIKI: 'k_community_wiki',
+  CHAT: 'k_community_chat',
 };
 
 // Initial Seed Data
@@ -22,8 +25,20 @@ const ADMIN_USER: User = {
   level: 99,
   exp: 999999,
   points: 999999,
-  email: 'admin@k-hub.com'
+  email: 'admin@k-hub.com',
+  inventory: [],
+  active_items: { name_color: '#FF0000', name_style: 'bold', badge: '👑' },
+  blocked_users: []
 };
+
+// Shop Items
+export const SHOP_ITEMS: ShopItem[] = [
+  { id: 'color_blue', name: '닉네임: 블루', description: '닉네임을 파란색으로 변경합니다.', price: 100, type: 'color', value: '#3b82f6', icon: '🎨' },
+  { id: 'color_green', name: '닉네임: 그린', description: '닉네임을 초록색으로 변경합니다.', price: 100, type: 'color', value: '#22c55e', icon: '🎨' },
+  { id: 'style_bold', name: '닉네임: 굵게', description: '닉네임을 굵게 표시합니다.', price: 200, type: 'style', value: 'bold', icon: 'B' },
+  { id: 'badge_star', name: '별 배지', description: '닉네임 옆에 별 배지를 답니다.', price: 500, type: 'badge', value: '⭐', icon: '🎖️' },
+  { id: 'badge_dia', name: '다이아 배지', description: '닉네임 옆에 다이아 배지를 답니다.', price: 1000, type: 'badge', value: '💎', icon: '🎖️' },
+];
 
 // Utility to generate fake IP
 const generateFakeIP = () => {
@@ -32,7 +47,7 @@ const generateFakeIP = () => {
   return `${p1}.${p2}.***.***`;
 };
 
-// EXP Table: Level N requires N * 100 EXP
+// EXP Table
 const getLevel = (exp: number) => Math.floor(exp / 100) + 1;
 
 const SEED_POSTS: Post[] = [
@@ -86,13 +101,10 @@ export const storage = {
 
   savePost: (post: Post) => {
     const posts = storage.getPosts();
-    // Add IP if missing
     if (!post.ip_addr) post.ip_addr = generateFakeIP();
     posts.unshift(post);
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
-
-    // Grant EXP to Author
-    storage.addExp(post.author_id, 10); // 10 EXP for posting
+    storage.addExp(post.author_id, 10); 
   },
 
   updatePost: (updatedPost: Post) => {
@@ -115,7 +127,6 @@ export const storage = {
     comments.push(comment);
     localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(comments));
     
-    // Update post comment count
     const posts = storage.getPosts();
     const postIndex = posts.findIndex(p => p.id === comment.post_id);
     let postAuthorId = '';
@@ -126,10 +137,8 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     }
 
-    // Grant EXP
-    storage.addExp(comment.author_id, 2); // 2 EXP for commenting
+    storage.addExp(comment.author_id, 2); 
 
-    // Create Notification for Post Author (if not self)
     if (postAuthorId && postAuthorId !== comment.author_id) {
       storage.createNotification({
         user_id: postAuthorId,
@@ -155,15 +164,47 @@ export const storage = {
 
   // EXP & User Logic
   addExp: (userId: string, amount: number) => {
-    // 1. Update Session if it's the current user
     const session = storage.getSession();
     if (session && session.id === userId) {
       session.exp += amount;
+      session.points += amount; // Give points same as exp for now
       session.level = getLevel(session.exp);
       storage.setSession(session);
     }
-    // 2. In a real app, update the users database too. 
-    // Since we don't have a full user DB in this mock, we rely on session for current user.
+  },
+
+  // User Blocking
+  blockUser: (blockerId: string, targetId: string) => {
+    const session = storage.getSession();
+    if (session && session.id === blockerId) {
+        if (!session.blocked_users.includes(targetId)) {
+            session.blocked_users.push(targetId);
+            storage.setSession(session);
+        }
+    }
+  },
+
+  // Shop
+  buyItem: (userId: string, itemId: string): boolean => {
+      const session = storage.getSession();
+      const item = SHOP_ITEMS.find(i => i.id === itemId);
+      
+      if (session && item && session.id === userId) {
+          if (session.points >= item.price) {
+              session.points -= item.price;
+              if (!session.inventory.includes(itemId)) {
+                  session.inventory.push(itemId);
+              }
+              // Auto equip
+              if (item.type === 'color') session.active_items.name_color = item.value;
+              if (item.type === 'style' && item.value === 'bold') session.active_items.name_style = 'bold';
+              if (item.type === 'badge') session.active_items.badge = item.value;
+              
+              storage.setSession(session);
+              return true;
+          }
+      }
+      return false;
   },
 
   // Notifications
@@ -195,5 +236,41 @@ export const storage = {
     const allnotes: Notification[] = JSON.parse(data);
     const updated = allnotes.map(n => n.user_id === userId ? { ...n, is_read: true } : n);
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+  },
+
+  // Wiki
+  getWikiPages: (): WikiPage[] => {
+      const data = localStorage.getItem(STORAGE_KEYS.WIKI);
+      return data ? JSON.parse(data) : [];
+  },
+  
+  getWikiPage: (slug: string): WikiPage | undefined => {
+      const pages = storage.getWikiPages();
+      return pages.find(p => p.slug === slug);
+  },
+
+  saveWikiPage: (page: WikiPage) => {
+      const pages = storage.getWikiPages();
+      const idx = pages.findIndex(p => p.slug === page.slug);
+      if (idx !== -1) {
+          pages[idx] = page;
+      } else {
+          pages.push(page);
+      }
+      localStorage.setItem(STORAGE_KEYS.WIKI, JSON.stringify(pages));
+  },
+
+  // Chat
+  getChatMessages: (): ChatMessage[] => {
+      const data = localStorage.getItem(STORAGE_KEYS.CHAT);
+      return data ? JSON.parse(data) : [];
+  },
+
+  sendChatMessage: (msg: ChatMessage) => {
+      const msgs = storage.getChatMessages();
+      msgs.push(msg);
+      // Keep last 50
+      if (msgs.length > 50) msgs.shift();
+      localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(msgs));
   }
 };
