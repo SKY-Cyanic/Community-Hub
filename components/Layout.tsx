@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Board, Notification } from '../types';
+import { Board, Notification, User } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -9,63 +9,20 @@ import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, Shopp
 import { storage } from '../services/storage';
 import LiveChat from './LiveChat';
 
-const Layout: React.FC = () => {
-  const [boards, setBoards] = useState<Board[]>([]);
-  const location = useLocation();
-  const { user, login, logout, isLoading } = useAuth();
-  const { isDarkMode, toggleTheme } = useTheme();
-  const [usernameInput, setUsernameInput] = useState('');
-  
-  // Mobile Menu State
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+// Extracted UserSection to prevent re-mount on parent render
+interface UserSectionProps {
+  user: User | null;
+  isLoading: boolean;
+  usernameInput: string;
+  setUsernameInput: (val: string) => void;
+  handleLogin: (e: React.FormEvent) => void;
+  logout: () => void;
+}
 
-  // Notification State
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [showNoti, setShowNoti] = useState(false);
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  useEffect(() => {
-    api.getBoards().then(setBoards);
-  }, []);
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [location]);
-
-  useEffect(() => {
-    if (user) {
-      const fetchNoti = () => {
-        const notis = storage.getNotifications(user.id);
-        setNotifications(notis);
-      };
-      fetchNoti();
-      const interval = setInterval(fetchNoti, 5000);
-      return () => clearInterval(interval);
-    } else {
-      setNotifications([]);
-    }
-  }, [user]);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (usernameInput.trim()) {
-      login(usernameInput);
-    }
-  };
-
-  const handleNotiClick = () => {
-    setShowNoti(!showNoti);
-    if (!showNoti && user) {
-      storage.markNotificationsRead(user.id);
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    }
-  };
-
+const UserSection: React.FC<UserSectionProps> = ({ user, isLoading, usernameInput, setUsernameInput, handleLogin, logout }) => {
   const expPercent = user ? Math.min(100, Math.max(0, (user.exp % 100) / 100 * 100)) : 0;
 
-  // Reusable User Profile / Login Component
-  const UserSection = () => (
+  return (
     <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-sm shadow-sm transition-colors">
       <div className="text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">로그인 정보</div>
       
@@ -140,6 +97,60 @@ const Layout: React.FC = () => {
       )}
     </div>
   );
+};
+
+const Layout: React.FC = () => {
+  const [boards, setBoards] = useState<Board[]>([]);
+  const location = useLocation();
+  const { user, login, logout, isLoading } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
+  const [usernameInput, setUsernameInput] = useState('');
+  
+  // Mobile Menu State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Notification State
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNoti, setShowNoti] = useState(false);
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  useEffect(() => {
+    api.getBoards().then(setBoards);
+  }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    if (user) {
+      const fetchNoti = () => {
+        const notis = storage.getNotifications(user.id);
+        setNotifications(notis);
+      };
+      fetchNoti();
+      const interval = setInterval(fetchNoti, 5000);
+      return () => clearInterval(interval);
+    } else {
+      setNotifications([]);
+    }
+  }, [user]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (usernameInput.trim()) {
+      login(usernameInput);
+    }
+  };
+
+  const handleNotiClick = () => {
+    setShowNoti(!showNoti);
+    if (!showNoti && user) {
+      storage.markNotificationsRead(user.id);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200 font-sans">
@@ -270,7 +281,14 @@ const Layout: React.FC = () => {
 
              <div className="overflow-y-auto flex-1 p-4 space-y-6">
                 {/* User Section in Mobile */}
-                <UserSection />
+                <UserSection 
+                   user={user} 
+                   isLoading={isLoading} 
+                   usernameInput={usernameInput} 
+                   setUsernameInput={setUsernameInput} 
+                   handleLogin={handleLogin} 
+                   logout={logout} 
+                />
 
                 {/* Navigation Links */}
                 <div>
@@ -320,7 +338,14 @@ const Layout: React.FC = () => {
 
           {/* Sidebar (Right) - Hidden on Mobile */}
           <aside className="hidden md:block md:col-span-1 space-y-4">
-             <UserSection />
+             <UserSection 
+                user={user} 
+                isLoading={isLoading} 
+                usernameInput={usernameInput} 
+                setUsernameInput={setUsernameInput} 
+                handleLogin={handleLogin} 
+                logout={logout} 
+             />
 
              {/* Popular Boards Mock */}
              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm shadow-sm transition-colors">
