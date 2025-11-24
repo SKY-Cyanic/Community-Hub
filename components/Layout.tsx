@@ -1,14 +1,14 @@
+
 import React, { useEffect, useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Board, Notification, User } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight, Settings, Shield } from 'lucide-react';
+import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight, Settings, Shield, Globe, Cloud, Zap } from 'lucide-react';
 import { storage } from '../services/storage';
+import { initializeCloud, isCloudActive, onCloudStatusChange } from '../services/cloud';
 import LiveChat from './LiveChat';
-
-const { Link, Outlet, useLocation } = ReactRouterDOM as any;
 
 // Extracted UserSection to prevent re-mount on parent render
 interface UserSectionProps {
@@ -186,6 +186,9 @@ const Layout: React.FC = () => {
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFACode, setTwoFACode] = useState('');
 
+  // Cloud Config
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
+
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -193,6 +196,18 @@ const Layout: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNoti, setShowNoti] = useState(false);
   const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  useEffect(() => {
+    // Initialize Cloud automatically with hardcoded config in cloud.ts
+    initializeCloud();
+    
+    // Subscribe to status changes to detect connection failures (e.g. permission denied)
+    const unsubscribe = onCloudStatusChange((connected) => {
+        setIsCloudConnected(connected);
+    });
+    
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     api.getBoards().then(setBoards);
@@ -349,6 +364,13 @@ const Layout: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-3">
+            <div 
+              className={`p-2 rounded-full transition-colors flex items-center gap-1 text-xs font-bold ${isCloudConnected ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}
+              title={isCloudConnected ? "클라우드 동기화 중" : "로컬 모드"}
+            >
+              {isCloudConnected ? <Zap size={16} fill="currentColor" /> : <Cloud size={16} />}
+              <span className="hidden md:inline">{isCloudConnected ? 'LIVE' : 'LOCAL'}</span>
+            </div>
             <button 
               onClick={toggleTheme}
               className="p-2 hover:bg-indigo-600 dark:hover:bg-gray-700 rounded-full transition-colors"

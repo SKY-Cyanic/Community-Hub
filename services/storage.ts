@@ -18,6 +18,15 @@ export const notifyChanges = (type: string) => {
   channel.postMessage({ type, timestamp: Date.now() });
 };
 
+// Hooks for external sync (Cloud Service)
+export const storageHooks = {
+    onPostSave: (post: Post) => {},
+    onPostDelete: (postId: string) => {},
+    onCommentSave: (comment: Comment) => {},
+    onUserSave: (user: User) => {},
+    onWikiSave: (page: WikiPage) => {},
+};
+
 // Initial Seed Data
 const SEED_BOARDS: Board[] = [
   { id: '1', slug: 'free', name: '자유게시판', description: '자유롭게 이야기를 나누는 공간입니다.', categories: ['잡담', '질문', '후기'] },
@@ -114,6 +123,25 @@ export const storage = {
   // Expose channel for listener registration
   channel,
 
+  // Direct overwrite for sync purposes (used by CloudService)
+  // These methods update local storage without triggering hooks back to cloud to avoid loops
+  _overwritePosts: (posts: Post[]) => {
+      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+      notifyChanges('POST_UPDATE');
+  },
+  _overwriteComments: (comments: Comment[]) => {
+      localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(comments));
+      notifyChanges('COMMENT_UPDATE');
+  },
+  _overwriteUsers: (users: User[]) => {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      notifyChanges('USER_UPDATE');
+  },
+  _overwriteWiki: (pages: WikiPage[]) => {
+      localStorage.setItem(STORAGE_KEYS.WIKI, JSON.stringify(pages));
+      notifyChanges('WIKI_UPDATE');
+  },
+
   getBoards: (): Board[] => SEED_BOARDS,
 
   getPosts: (): Post[] => {
@@ -125,10 +153,16 @@ export const storage = {
     const posts = storage.getPosts();
     if (!post.ip_addr) post.ip_addr = generateFakeIP();
     if (!post.liked_users) post.liked_users = [];
+    
+    // Check if exists
+    const idx = posts.findIndex(p => p.id === post.id);
+    if(idx !== -1) return; // Prevent duplicate inserts
+
     posts.unshift(post);
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     storage.addExp(post.author_id, 10);
     notifyChanges('POST_UPDATE');
+    storageHooks.onPostSave(post);
   },
 
   updatePost: (updatedPost: Post) => {
@@ -138,6 +172,7 @@ export const storage = {
        posts[index] = updatedPost;
        localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
        notifyChanges('POST_UPDATE');
+       storageHooks.onPostSave(updatedPost);
      }
   },
 
@@ -146,6 +181,7 @@ export const storage = {
     posts = posts.filter(p => p.id !== postId);
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     notifyChanges('POST_UPDATE');
+    storageHooks.onPostDelete(postId);
   },
 
   getComments: (): Comment[] => safeParse<Comment[]>(STORAGE_KEYS.COMMENTS, []),
@@ -153,6 +189,10 @@ export const storage = {
   saveComment: (comment: Comment) => {
     const comments = storage.getComments();
     if (!comment.ip_addr) comment.ip_addr = generateFakeIP();
+    
+    const idx = comments.findIndex(c => c.id === comment.id);
+    if (idx !== -1) return;
+
     comments.push(comment);
     localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(comments));
     
@@ -164,6 +204,7 @@ export const storage = {
       posts[postIndex].comment_count += 1;
       postAuthorId = posts[postIndex].author_id;
       localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+      storageHooks.onPostSave(posts[postIndex]); // Sync post update (comment count)
     }
 
     storage.addExp(comment.author_id, 2); 
@@ -173,10 +214,11 @@ export const storage = {
         user_id: postAuthorId,
         type: 'comment',
         message: '내 글에 새로운 댓글이 달렸습니다.',
-        link: `/board/${posts[postIndex].board_id}/${comment.post_id}`
+        link: `/board/${posts[postIndex]?.board_id || 'free'}/${comment.post_id}`
       });
     }
     notifyChanges('COMMENT_UPDATE');
+    storageHooks.onCommentSave(comment);
   },
 
   getSession: (): User | null => safeParse<User | null>(STORAGE_KEYS.SESSION, null),
@@ -209,6 +251,7 @@ export const storage = {
     }
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     notifyChanges('USER_UPDATE');
+    storageHooks.onUserSave(user);
   },
 
   deleteUser: (userId: string) => {
@@ -216,6 +259,8 @@ export const storage = {
     users = users.filter(u => u.id !== userId);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     notifyChanges('USER_UPDATE');
+    // We don't implement full delete sync in this demo hook, 
+    // but in a real app we'd trigger cloud delete here.
   },
 
   // EXP & User Logic
@@ -237,6 +282,7 @@ export const storage = {
       } else {
          notifyChanges('USER_UPDATE');
       }
+      storageHooks.onUserSave(users[userIndex]);
     }
   },
 
@@ -255,6 +301,7 @@ export const storage = {
             } else {
                 notifyChanges('USER_UPDATE');
             }
+            storageHooks.onUserSave(users[idx]);
         }
     }
   },
@@ -284,13 +331,14 @@ export const storage = {
               } else {
                   notifyChanges('USER_UPDATE');
               }
+              storageHooks.onUserSave(users[idx]);
               return true;
           }
       }
       return false;
   },
 
-  // Notifications
+  // Notifications (Local only for now to reduce reads)
   getNotifications: (userId: string): Notification[] => {
     const allnotes = safeParse<Notification[]>(STORAGE_KEYS.NOTIFICATIONS, []);
     return allnotes.filter(n => n.user_id === userId).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -337,6 +385,7 @@ export const storage = {
       }
       localStorage.setItem(STORAGE_KEYS.WIKI, JSON.stringify(pages));
       notifyChanges('WIKI_UPDATE');
+      storageHooks.onWikiSave(page);
   },
 
   // Chat
@@ -349,5 +398,6 @@ export const storage = {
       if (msgs.length > 50) msgs.shift();
       localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(msgs));
       notifyChanges('CHAT_UPDATE');
+      // Chat is usually ephemeral or high frequency, not syncing to firestore post-docs for this demo to save quota
   }
 };

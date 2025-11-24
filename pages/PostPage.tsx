@@ -1,13 +1,12 @@
+
 import React, { useEffect, useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
 import { Post, Comment, Poll } from '../types';
 import CommentSection from '../components/CommentSection';
 import { ThumbsUp, ThumbsDown, Share2, AlertTriangle, Eye, Clock, BarChart2, Ban, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-const { useParams, Link, useNavigate } = ReactRouterDOM as any;
 
 const PostPage: React.FC = () => {
   const { boardId, postId } = useParams<{ boardId: string; postId: string }>();

@@ -1,5 +1,6 @@
+
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
@@ -11,8 +12,6 @@ import ShopPage from './pages/ShopPage';
 import WikiPage from './pages/WikiPage';
 import AdminPage from './pages/AdminPage';
 import { TermsPage, PrivacyPage, YouthPolicyPage } from './pages/PolicyPages';
-
-const { HashRouter, Routes, Route } = ReactRouterDOM as any;
 
 function App() {
   return (

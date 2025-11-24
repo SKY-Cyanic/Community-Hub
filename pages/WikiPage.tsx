@@ -1,12 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
 import { WikiPage as WikiPageType } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Edit, Save, Clock, Search } from 'lucide-react';
-
-const { useSearchParams } = ReactRouterDOM as any;
 
 const WikiPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();

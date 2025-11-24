@@ -1,11 +1,10 @@
+
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Post } from '../types';
 import PostList from '../components/PostList';
 import { Flame, ChevronRight, TrendingUp, MessageSquare } from 'lucide-react';
-import * as ReactRouterDOM from 'react-router-dom';
-
-const { Link } = ReactRouterDOM as any;
+import { Link } from 'react-router-dom';
 
 const HomePage: React.FC = () => {
   const [hotPosts, setHotPosts] = useState<Post[]>([]);

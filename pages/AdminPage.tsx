@@ -1,12 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
 import { User, Post } from '../types';
 import { Trash2, Shield, Users, FileText, XCircle } from 'lucide-react';
-import * as ReactRouterDOM from 'react-router-dom';
-
-const { useNavigate } = ReactRouterDOM as any;
+import { useNavigate } from 'react-router-dom';
 
 const AdminPage: React.FC = () => {
   const { user } = useAuth();

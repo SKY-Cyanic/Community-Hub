@@ -1,11 +1,10 @@
+
 import React, { useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Post } from '../types';
 import { MessageSquare, ThumbsUp, Image as ImageIcon, BarChart2, Grid, List } from 'lucide-react';
 import { storage } from '../services/storage';
 import { useAuth } from '../context/AuthContext';
-
-const { Link } = ReactRouterDOM as any;
 
 interface PostListProps {
   posts: Post[];

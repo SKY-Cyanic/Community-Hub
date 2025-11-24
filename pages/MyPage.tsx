@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { storage } from '../services/storage';
 import { User, Post, Comment } from '../types';
@@ -7,14 +8,32 @@ import { Calendar, Award, Edit3, MessageCircle, User as UserIcon } from 'lucide-
 const MyPage: React.FC = () => {
   const { user } = useAuth();
   const [checkedIn, setCheckedIn] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadData = () => {
+        setPosts(storage.getPosts().filter(p => p.author_id === user.id));
+        setComments(storage.getComments().filter(c => c.author_id === user.id));
+    };
+
+    loadData();
+
+    // Listen for cloud updates
+    const handleSync = (event: MessageEvent) => {
+        if (event.data.type === 'POST_UPDATE' || event.data.type === 'COMMENT_UPDATE') {
+            loadData();
+        }
+    };
+    storage.channel.addEventListener('message', handleSync);
+    return () => storage.channel.removeEventListener('message', handleSync);
+  }, [user]);
 
   if (!user) {
     return <div className="p-8 text-center">로그인이 필요합니다.</div>;
   }
-
-  // Get user stats
-  const posts = storage.getPosts().filter(p => p.author_id === user.id);
-  const comments = storage.getComments().filter(c => c.author_id === user.id);
   
   // Calculate level progress
   const expNeeded = user.level * 100;
