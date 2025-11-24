@@ -5,6 +5,7 @@ export interface User {
   password?: string; // Hashed or plain for demo
   second_password?: string; // For Admin 2FA
   is_admin?: boolean;
+  is_bot?: boolean; // New: Identify AI Agent
   avatar_url?: string;
   email?: string;
   level: number;
@@ -32,6 +33,7 @@ export interface Profile {
     badge?: string;
   };
   is_admin?: boolean;
+  is_bot?: boolean;
 }
 
 export interface Board {
@@ -86,6 +88,7 @@ export interface Comment {
   depth: number;
   children?: Comment[];
   ip_addr?: string;
+  is_blinded?: boolean; // New: For CleanBot moderation
 }
 
 export interface Notification {
@@ -123,4 +126,12 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   user_level: number;
+}
+
+export interface AiLog {
+  id: string;
+  action: 'summary' | 'fact_check' | 'moderation' | 'comment' | 'wiki';
+  target_id: string;
+  detail: string;
+  timestamp: string;
 }

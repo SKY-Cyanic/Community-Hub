@@ -4,7 +4,8 @@ import { Comment } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
-import { CornerDownRight, MessageCircle, MoreHorizontal, Ban, Flag } from 'lucide-react';
+import { aiService } from '../services/ai';
+import { CornerDownRight, MessageCircle, MoreHorizontal, Ban, Flag, Bot, ShieldAlert } from 'lucide-react';
 
 interface CommentProps {
   comment: Comment;
@@ -33,6 +34,8 @@ const CommentItem: React.FC<CommentProps> = ({ comment, allComments, onReply, on
       )
   }
 
+  const isBot = comment.author.is_bot;
+
   const handleSubmitReply = () => {
     if(!replyContent.trim()) return;
     onReply(comment.id, replyContent);
@@ -41,10 +44,13 @@ const CommentItem: React.FC<CommentProps> = ({ comment, allComments, onReply, on
   };
 
   return (
-    <div className={`py-3 ${comment.depth > 0 ? 'ml-4 md:ml-8 border-l-2 border-gray-100 dark:border-gray-700 pl-3' : 'border-t border-gray-100 dark:border-gray-700'}`}>
+    <div className={`py-3 ${comment.depth > 0 ? 'ml-4 md:ml-8 border-l-2 border-gray-100 dark:border-gray-700 pl-3' : 'border-t border-gray-100 dark:border-gray-700'} ${isBot ? 'bg-blue-50/50 dark:bg-blue-900/10 rounded px-2 border border-blue-100 dark:border-blue-900' : ''}`}>
       <div className="flex justify-between items-start">
         <div className="flex items-center space-x-2">
           {comment.depth > 0 && <CornerDownRight size={14} className="text-gray-400" />}
+          
+          {isBot && <Bot size={16} className="text-blue-500" />}
+
           <span 
             className="font-bold text-sm text-gray-700 dark:text-gray-200 cursor-pointer"
             style={{ 
@@ -55,12 +61,14 @@ const CommentItem: React.FC<CommentProps> = ({ comment, allComments, onReply, on
           >
               {comment.author.active_items?.badge} {comment.author.username}
           </span>
+          {isBot && <span className="bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-200 text-[10px] px-1.5 rounded font-bold">BOT</span>}
+
           <span className="text-xs text-gray-400 font-mono">
             {new Date(comment.created_at).toLocaleString()}
           </span>
 
           {/* User Menu Dropdown */}
-          {showMenu && user && user.id !== comment.author_id && (
+          {showMenu && user && user.id !== comment.author_id && !isBot && (
               <div className="absolute bg-white dark:bg-gray-700 shadow-lg border border-gray-200 dark:border-gray-600 rounded py-1 z-10 ml-20 mt-6">
                   <button onClick={() => onBlock(comment.author_id)} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 w-full text-left">
                       <Ban size={12} /> 차단하기
@@ -78,8 +86,13 @@ const CommentItem: React.FC<CommentProps> = ({ comment, allComments, onReply, on
         </div>
       </div>
       
-      <div className="mt-1 text-sm text-gray-800 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-        {comment.content}
+      <div className={`mt-1 text-sm leading-relaxed whitespace-pre-wrap ${comment.is_blinded ? 'text-gray-400 italic flex items-center gap-1' : 'text-gray-800 dark:text-gray-300'}`}>
+        {comment.is_blinded ? (
+           <>
+             <ShieldAlert size={14}/> 
+             <span>AI 클린봇에 의해 가려진 댓글입니다.</span>
+           </>
+        ) : comment.content}
       </div>
 
       {isReplying && (
@@ -121,6 +134,7 @@ interface CommentSectionProps {
 const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialComments, postId }) => {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, refreshUser } = useAuth();
   
   React.useEffect(() => {
@@ -134,12 +148,46 @@ const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialCommen
       alert('로그인이 필요합니다.');
       return;
     }
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     try {
-      const created = await api.createComment(postId, content, user, parentId);
+      // AI Moderation Check
+      const check = await aiService.moderateContent(content);
+      let finalContent = content;
+      let isBlinded = false;
+
+      if (!check.isSafe) {
+         if (confirm(`[AI 클린봇 경고]\n작성하신 내용에 부적절한 표현이 감지되었습니다.\n사유: ${check.reason}\n\n그래도 등록하시겠습니까? 심한 경우 블라인드 처리될 수 있습니다.`)) {
+             // If user persists, we might blindly store it or store marked as blinded
+             // For this demo, let's blind it immediately if it's flagged
+             isBlinded = true;
+         } else {
+             setIsSubmitting(false);
+             return;
+         }
+      }
+
+      const created = await api.createComment(postId, finalContent, user, parentId);
+      if (isBlinded) {
+          // Manually update local state to show blinded immediately (ignoring API implementation for demo simplicity)
+          created.is_blinded = true;
+          // We would need an API endpoint to update this persistence, 
+          // here we hack it by updating storage directly for demo
+          const allComments = storage.getComments();
+          const idx = allComments.findIndex(c => c.id === created.id);
+          if (idx !== -1) {
+             allComments[idx].is_blinded = true;
+             localStorage.setItem('k_community_comments', JSON.stringify(allComments));
+          }
+      }
+
       setComments(prev => [...prev, created]);
       setNewComment('');
     } catch (e) {
       alert('댓글 등록 실패');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -177,23 +225,26 @@ const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialCommen
       </div>
 
       <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
-        <div className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-300">댓글 작성</div>
+        <div className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-300 flex justify-between">
+            <span>댓글 작성</span>
+            <span className="text-[10px] text-blue-500 flex items-center gap-1"><ShieldAlert size={10}/> 클린봇 작동중</span>
+        </div>
         <textarea 
           className="w-full border border-gray-300 dark:border-gray-600 p-3 rounded text-sm focus:outline-none focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
           rows={3}
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           placeholder={user ? "댓글을 입력해주세요." : "로그인 후 이용 가능합니다."}
-          disabled={!user}
+          disabled={!user || isSubmitting}
         />
         <div className="flex justify-between items-center mt-2">
            <div className="text-xs text-gray-400">Markdown 지원 안함</div>
            <button 
              onClick={() => handleCreateComment(newComment)}
-             disabled={!user}
-             className={`bg-indigo-600 text-white px-6 py-2 rounded text-sm font-bold hover:bg-indigo-700 ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+             disabled={!user || isSubmitting}
+             className={`bg-indigo-600 text-white px-6 py-2 rounded text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 ${(!user || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}
            >
-             등록
+             {isSubmitting ? '검사중...' : '등록'}
            </button>
         </div>
       </div>

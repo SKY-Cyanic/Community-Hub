@@ -3,9 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
+import { aiService } from '../services/ai';
 import { Post, Comment, Poll } from '../types';
 import CommentSection from '../components/CommentSection';
-import { ThumbsUp, ThumbsDown, Share2, AlertTriangle, Eye, Clock, BarChart2, Ban, Trash2 } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Share2, AlertTriangle, Eye, Clock, BarChart2, Ban, Trash2, Zap, Search, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const PostPage: React.FC = () => {
@@ -16,6 +17,17 @@ const PostPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAuthorMenu, setShowAuthorMenu] = useState(false);
   const { user, refreshUser } = useAuth();
+
+  // AI States
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryText, setSummaryText] = useState('');
+  const [isSummarizing, setIsSummarizing] = useState(false);
+
+  const [showFactCheck, setShowFactCheck] = useState(false);
+  const [factCheckResult, setFactCheckResult] = useState<{text: string, sources: {title:string, uri:string}[]} | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const [engagementTriggered, setEngagementTriggered] = useState(false);
   
   // Shortcuts logic
   useEffect(() => {
@@ -39,16 +51,51 @@ const PostPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (postId) {
-        // Warning: getPost increments view count side effect
         const postData = await api.getPost(postId);
         setPost(postData);
         const commentData = await api.getComments(postId);
         setComments(commentData);
+
+        // Engagement Bot Logic (Run once per load)
+        if (!engagementTriggered && postData && commentData.length === 0) {
+           // Mock time check: if post is older than 10 seconds (simulating "ignored post")
+           const diff = Date.now() - new Date(postData.created_at).getTime();
+           if (diff > 10000) {
+               setEngagementTriggered(true);
+               aiService.generateComment(postData.content).then(async (aiComment) => {
+                   if (aiComment) {
+                       const botUser = storage.getBotUser();
+                       const created = await api.createComment(postData.id, aiComment, botUser);
+                       setComments(prev => [...prev, created]);
+                   }
+               });
+           }
+        }
       }
       setLoading(false);
     };
     fetchData();
   }, [postId]);
+
+  const handleSummarize = async () => {
+    if (summaryText) return; // Already done
+    setIsSummarizing(true);
+    if (post) {
+        const result = await aiService.summarize(post.content);
+        setSummaryText(result);
+    }
+    setIsSummarizing(false);
+  };
+
+  const handleFactCheck = async () => {
+    if (factCheckResult) return;
+    setIsChecking(true);
+    if (post) {
+        const result = await aiService.factCheck(post.content);
+        setFactCheckResult(result);
+    }
+    setIsChecking(false);
+  };
 
   const handleVote = async (type: 'up' | 'down') => {
     if (!post || !user) {
@@ -63,7 +110,6 @@ const PostPage: React.FC = () => {
 
     const success = await api.votePost(post.id, type, user.id);
     if (success) {
-        // Manually update state to avoid re-fetching which increases view count
         setPost(prev => {
             if(!prev) return null;
             return {
@@ -126,7 +172,6 @@ const PostPage: React.FC = () => {
   if (loading) return <div className="p-8 text-center dark:text-gray-300">로딩중...</div>;
   if (!post) return <div className="p-8 text-center text-red-500">게시글이 존재하지 않습니다.</div>;
 
-  // Blocked Check
   if (user && user.blocked_users.includes(post.author_id)) {
       return (
           <div className="p-8 text-center border rounded bg-gray-100 dark:bg-gray-800">
@@ -138,7 +183,6 @@ const PostPage: React.FC = () => {
 
   const hasVoted = user && post.liked_users && post.liked_users.includes(user.id);
   
-  // Delete Logic
   const canDelete = user && (
       user.is_admin || 
       (user.id === post.author_id && (Date.now() - new Date(post.created_at).getTime()) < 24 * 60 * 60 * 1000)
@@ -186,6 +230,72 @@ const PostPage: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* AI Feature Buttons */}
+      <div className="flex gap-2 mb-4">
+        <button 
+            onClick={() => { setShowSummary(!showSummary); handleSummarize(); }}
+            className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full hover:bg-indigo-100 transition-colors dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800"
+        >
+            <Zap size={14} /> 3줄 요약
+        </button>
+        <button 
+            onClick={() => { setShowFactCheck(!showFactCheck); handleFactCheck(); }}
+            className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-green-50 text-green-600 border border-green-100 rounded-full hover:bg-green-100 transition-colors dark:bg-green-900/30 dark:text-green-300 dark:border-green-800"
+        >
+            <Search size={14} /> 팩트 체크
+        </button>
+      </div>
+
+      {/* AI Summary Box */}
+      {showSummary && (
+          <div className="mb-4 p-4 bg-indigo-50/50 dark:bg-gray-700/50 rounded-lg border border-indigo-100 dark:border-gray-600">
+              <div className="flex items-center gap-2 mb-2">
+                  <Sparkles size={16} className="text-indigo-500" />
+                  <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">AI 파딱 요약</span>
+              </div>
+              {isSummarizing ? (
+                  <div className="text-xs text-gray-500 animate-pulse">열심히 요약하는 중... (잠시만 기다려주세요)</div>
+              ) : (
+                  <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                      {summaryText}
+                  </div>
+              )}
+          </div>
+      )}
+
+      {/* AI Fact Check Box */}
+      {showFactCheck && (
+          <div className="mb-4 p-4 bg-green-50/50 dark:bg-gray-700/50 rounded-lg border border-green-100 dark:border-gray-600">
+              <div className="flex items-center gap-2 mb-2">
+                  <Search size={16} className="text-green-600" />
+                  <span className="text-sm font-bold text-green-700 dark:text-green-300">AI 팩트 체크</span>
+              </div>
+              {isChecking ? (
+                  <div className="text-xs text-gray-500 animate-pulse">Google 검색 중...</div>
+              ) : (
+                  <div>
+                      <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed mb-3">
+                          {factCheckResult?.text}
+                      </div>
+                      {factCheckResult?.sources && factCheckResult.sources.length > 0 && (
+                          <div className="border-t border-green-100 dark:border-gray-600 pt-2">
+                              <div className="text-xs text-gray-500 mb-1">참고 출처:</div>
+                              <ul className="space-y-1">
+                                  {factCheckResult.sources.map((src, i) => (
+                                      <li key={i} className="text-xs">
+                                          <a href={src.uri} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline truncate block">
+                                              {src.title}
+                                          </a>
+                                      </li>
+                                  ))}
+                              </ul>
+                          </div>
+                      )}
+                  </div>
+              )}
+          </div>
+      )}
 
       {/* Poll Section */}
       {post.poll && (
@@ -205,7 +315,7 @@ const PostPage: React.FC = () => {
                     onClick={() => handlePollVote(opt.id)}
                     disabled={hasVotedPoll}
                     className={`w-full text-left p-3 rounded border relative overflow-hidden transition-all ${hasVotedPoll ? 'cursor-default' : 'hover:border-indigo-400'}`}
-                    style={{ borderColor: 'transparent' }} // reset
+                    style={{ borderColor: 'transparent' }}
                   >
                     <div className="absolute top-0 left-0 bottom-0 bg-indigo-100 dark:bg-indigo-900/40 z-0 transition-all duration-500" style={{ width: `${percent}%` }}></div>
                     <div className="relative z-10 flex justify-between items-center">

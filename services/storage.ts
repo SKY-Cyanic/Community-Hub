@@ -1,5 +1,5 @@
 
-import { Post, Comment, Board, User, Notification, WikiPage, ChatMessage, ShopItem } from '../types';
+import { Post, Comment, Board, User, Notification, WikiPage, ChatMessage, ShopItem, AiLog } from '../types';
 
 const STORAGE_KEYS = {
   POSTS: 'k_community_posts',
@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'k_community_notifications',
   WIKI: 'k_community_wiki',
   CHAT: 'k_community_chat',
+  AI_LOGS: 'k_community_ai_logs', // New
 };
 
 // Broadcast Channel for Cross-Tab Sync
@@ -29,7 +30,7 @@ const SEED_BOARDS: Board[] = [
 const ADMIN_USER: User = {
   id: 'admin',
   username: 'admin',
-  password: 'admin_password_placeholder', // Should be overwritten by real registration
+  password: 'admin_password_placeholder', 
   is_admin: true,
   level: 99,
   exp: 999999,
@@ -37,6 +38,21 @@ const ADMIN_USER: User = {
   email: 'admin@k-hub.com',
   inventory: [],
   active_items: { name_color: '#FF0000', name_style: 'bold', badge: '👑' },
+  blocked_users: []
+};
+
+const BOT_USER: User = {
+  id: 'ai_manager',
+  username: 'AI_파딱',
+  password: '', 
+  is_admin: false,
+  is_bot: true,
+  level: 100,
+  exp: 0,
+  points: 0,
+  email: 'ai@k-hub.com',
+  inventory: [],
+  active_items: { name_color: '#3b82f6', name_style: 'bold', badge: '🤖' },
   blocked_users: []
 };
 
@@ -127,7 +143,7 @@ export const storage = {
     if (!post.liked_users) post.liked_users = [];
     posts.unshift(post);
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
-    storage.addExp(post.author_id, 10);
+    if(!post.author.is_bot) storage.addExp(post.author_id, 10);
     notifyChanges('POST_UPDATE');
   },
 
@@ -152,7 +168,7 @@ export const storage = {
 
   saveComment: (comment: Comment) => {
     const comments = storage.getComments();
-    if (!comment.ip_addr) comment.ip_addr = generateFakeIP();
+    if (!comment.ip_addr && !comment.author.is_bot) comment.ip_addr = generateFakeIP();
     comments.push(comment);
     localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(comments));
     
@@ -166,13 +182,13 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     }
 
-    storage.addExp(comment.author_id, 2); 
+    if(!comment.author.is_bot) storage.addExp(comment.author_id, 2); 
 
     if (postAuthorId && postAuthorId !== comment.author_id) {
       storage.createNotification({
         user_id: postAuthorId,
         type: 'comment',
-        message: '내 글에 새로운 댓글이 달렸습니다.',
+        message: comment.author.is_bot ? 'AI 파딱이 댓글을 남겼습니다.' : '내 글에 새로운 댓글이 달렸습니다.',
         link: `/board/${posts[postIndex].board_id}/${comment.post_id}`
       });
     }
@@ -191,12 +207,24 @@ export const storage = {
   },
   
   getUsers: (): User[] => {
-    return safeParse<User[]>(STORAGE_KEYS.USERS, []);
+    const users = safeParse<User[]>(STORAGE_KEYS.USERS, []);
+    // Ensure Bot User exists
+    if (!users.find(u => u.id === BOT_USER.id)) {
+        users.push(BOT_USER);
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    }
+    return users;
   },
 
   getUser: (username: string): User | undefined => {
     const users = storage.getUsers();
     return users.find(u => u.username === username);
+  },
+
+  getBotUser: (): User => {
+      // Ensure existence logic is in getUsers
+      const users = storage.getUsers();
+      return users.find(u => u.id === BOT_USER.id) || BOT_USER;
   },
   
   saveUser: (user: User) => {
@@ -223,7 +251,7 @@ export const storage = {
     const users = storage.getUsers();
     const userIndex = users.findIndex(u => u.id === userId);
     
-    if (userIndex !== -1) {
+    if (userIndex !== -1 && !users[userIndex].is_bot) {
       users[userIndex].exp += amount;
       users[userIndex].points += amount;
       users[userIndex].level = getLevel(users[userIndex].exp);
@@ -349,5 +377,22 @@ export const storage = {
       if (msgs.length > 50) msgs.shift();
       localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(msgs));
       notifyChanges('CHAT_UPDATE');
+  },
+
+  // AI Logs
+  getAiLogs: (): AiLog[] => safeParse<AiLog[]>(STORAGE_KEYS.AI_LOGS, []),
+
+  saveAiLog: (action: AiLog['action'], target_id: string, detail: string) => {
+      const logs = storage.getAiLogs();
+      logs.unshift({
+          id: `log-${Date.now()}`,
+          action,
+          target_id,
+          detail,
+          timestamp: new Date().toISOString()
+      });
+      // Keep last 100 logs
+      if (logs.length > 100) logs.pop();
+      localStorage.setItem(STORAGE_KEYS.AI_LOGS, JSON.stringify(logs));
   }
 };

@@ -3,9 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
+import { aiService } from '../services/ai';
 import { WikiPage as WikiPageType } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Edit, Save, Clock, Search } from 'lucide-react';
+import { BookOpen, Edit, Save, Clock, Search, Sparkles } from 'lucide-react';
 
 const WikiPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,6 +16,7 @@ const WikiPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [recentDocs, setRecentDocs] = useState<WikiPageType[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -51,6 +53,16 @@ const WikiPage: React.FC = () => {
       setRecentDocs(storage.getWikiPages().sort((a,b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()).slice(0, 5));
   };
 
+  const handleAutoDraft = async () => {
+      if (!doc) return;
+      if (!confirm('기존 내용이 AI가 생성한 내용으로 대체됩니다. 진행하시겠습니까?')) return;
+      
+      setIsGenerating(true);
+      const draft = await aiService.generateWikiDraft(doc.title);
+      setEditContent(draft);
+      setIsGenerating(false);
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Main Content */}
@@ -72,11 +84,22 @@ const WikiPage: React.FC = () => {
             
             <div className="p-6">
                 {isEditing ? (
-                    <textarea 
-                        className="w-full h-[400px] p-4 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:outline-none focus:border-indigo-500 font-mono text-sm"
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                    />
+                    <>
+                        <div className="mb-2 flex justify-end">
+                            <button 
+                                onClick={handleAutoDraft}
+                                disabled={isGenerating}
+                                className="text-xs bg-purple-100 text-purple-600 px-3 py-1.5 rounded-full hover:bg-purple-200 flex items-center gap-1 font-bold"
+                            >
+                                <Sparkles size={12}/> {isGenerating ? 'AI 작성중...' : 'AI 자동 초안 생성'}
+                            </button>
+                        </div>
+                        <textarea 
+                            className="w-full h-[400px] p-4 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                        />
+                    </>
                 ) : (
                     <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
                         {doc?.content}
