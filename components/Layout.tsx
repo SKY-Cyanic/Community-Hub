@@ -5,9 +5,8 @@ import { Board, Notification, User } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight, Settings, Shield, Globe, Cloud, Zap } from 'lucide-react';
+import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight, Settings, Shield, Cloud, RefreshCw } from 'lucide-react';
 import { storage } from '../services/storage';
-import { initializeCloud, isCloudActive, onCloudStatusChange } from '../services/cloud';
 import LiveChat from './LiveChat';
 
 // Extracted UserSection to prevent re-mount on parent render
@@ -186,9 +185,6 @@ const Layout: React.FC = () => {
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFACode, setTwoFACode] = useState('');
 
-  // Cloud Config
-  const [isCloudConnected, setIsCloudConnected] = useState(false);
-
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -197,31 +193,40 @@ const Layout: React.FC = () => {
   const [showNoti, setShowNoti] = useState(false);
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  useEffect(() => {
-    // Initialize Cloud automatically with hardcoded config in cloud.ts
-    initializeCloud();
-    
-    // Subscribe to status changes to detect connection failures (e.g. permission denied)
-    const unsubscribe = onCloudStatusChange((connected) => {
-        setIsCloudConnected(connected);
-    });
-    
-    return () => unsubscribe();
-  }, []);
+  // Cloud Sync Status
+  const [lastSyncTime, setLastSyncTime] = useState<string>('');
 
   useEffect(() => {
     api.getBoards().then(setBoards);
-    // Subscribe for cross-tab updates
+    // Subscribe for cross-tab updates and Cloud Sync Updates
     const handleSync = (event: MessageEvent) => {
         if (event.data.type === 'NOTI_UPDATE') {
              if (user) {
                 setNotifications(storage.getNotifications(user.id));
              }
         }
+        // Refresh boards/posts if cloud sync happens
+        if (event.data.type === 'CLOUD_SYNC') {
+            setLastSyncTime(new Date().toLocaleTimeString());
+            // Force re-fetch is handled by pages subscribing to change, 
+            // but we might need to update global states if any.
+        }
     };
     storage.channel.addEventListener('message', handleSync);
     return () => storage.channel.removeEventListener('message', handleSync);
   }, [user]);
+
+  // Polling for Cloud Sync (Every 4 seconds)
+  useEffect(() => {
+      const pollInterval = setInterval(() => {
+          storage.cloudSync.load();
+      }, 4000);
+      
+      // Initial load
+      storage.cloudSync.load();
+
+      return () => clearInterval(pollInterval);
+  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -364,13 +369,6 @@ const Layout: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-3">
-            <div 
-              className={`p-2 rounded-full transition-colors flex items-center gap-1 text-xs font-bold ${isCloudConnected ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}
-              title={isCloudConnected ? "클라우드 동기화 중" : "로컬 모드"}
-            >
-              {isCloudConnected ? <Zap size={16} fill="currentColor" /> : <Cloud size={16} />}
-              <span className="hidden md:inline">{isCloudConnected ? 'LIVE' : 'LOCAL'}</span>
-            </div>
             <button 
               onClick={toggleTheme}
               className="p-2 hover:bg-indigo-600 dark:hover:bg-gray-700 rounded-full transition-colors"
@@ -571,7 +569,11 @@ const Layout: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h5 className="text-white font-bold text-lg mb-1 flex items-center gap-2">K-Community Hub</h5>
-              <p className="text-gray-500 text-xs">대한민국 트렌드가 시작되는 곳</p>
+              <div className="flex items-center gap-2 text-xs text-green-400 font-mono">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                  Cloud Sync Active {lastSyncTime && `(${lastSyncTime})`}
+              </div>
+              <p className="text-gray-500 text-xs mt-2">대한민국 트렌드가 시작되는 곳</p>
             </div>
             <div className="flex flex-wrap gap-4 md:gap-6 text-xs">
               <Link to="/terms" className="hover:text-white transition-colors">이용약관</Link>
