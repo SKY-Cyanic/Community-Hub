@@ -1,3 +1,4 @@
+
 import { Post, Comment, Board, User, Notification, WikiPage, ChatMessage, ShopItem } from '../types';
 
 const STORAGE_KEYS = {
@@ -49,6 +50,7 @@ const generateFakeIP = () => {
 // EXP Table
 const getLevel = (exp: number) => Math.floor(exp / 100) + 1;
 
+// Fixed: Reset manipulated view counts to realistic numbers
 const SEED_POSTS: Post[] = [
   {
     id: 'notice-free',
@@ -57,12 +59,13 @@ const SEED_POSTS: Post[] = [
     category: '공지',
     title: '[공지] 자유게시판 이용 수칙 및 가이드라인',
     content: '<p><strong>안녕하세요, K-Community Hub입니다.</strong></p><p><br></p><p>자유게시판은 누구나 자유롭게 이야기를 나누는 공간입니다.</p><p>단, 욕설, 비방, 도배, 광고성 게시물은 예고 없이 삭제될 수 있으며 이용이 제한될 수 있습니다.</p><p><br></p><p>서로 존중하며 즐거운 커뮤니티를 만들어주세요.</p>',
-    view_count: 45210,
-    upvotes: 1240,
-    downvotes: 5,
+    view_count: 120, // Reset from 45210
+    upvotes: 15, // Reset
+    downvotes: 0,
+    liked_users: [],
     created_at: new Date('2024-01-01T09:00:00').toISOString(),
     author: { ...ADMIN_USER, created_at: new Date().toISOString() },
-    comment_count: 152,
+    comment_count: 5,
     is_hot: true,
     has_image: false,
     ip_addr: '1.1.***.***'
@@ -74,12 +77,13 @@ const SEED_POSTS: Post[] = [
     category: '공지',
     title: '[공지] 유머게시판 베스트 선정 기준 안내',
     content: '<p>추천 수 10개 이상을 받을 시 실시간 베스트로 자동 이동됩니다.</p><p>중복 자료는 자제 부탁드립니다.</p>',
-    view_count: 89032,
-    upvotes: 5201,
-    downvotes: 112,
+    view_count: 85, // Reset
+    upvotes: 10,
+    downvotes: 0,
+    liked_users: [],
     created_at: new Date('2024-01-02T10:30:00').toISOString(),
     author: { ...ADMIN_USER, created_at: new Date().toISOString() },
-    comment_count: 892,
+    comment_count: 2,
     is_hot: true,
     has_image: false,
     ip_addr: '1.1.***.***'
@@ -108,6 +112,7 @@ export const storage = {
   savePost: (post: Post) => {
     const posts = storage.getPosts();
     if (!post.ip_addr) post.ip_addr = generateFakeIP();
+    if (!post.liked_users) post.liked_users = [];
     posts.unshift(post);
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     storage.addExp(post.author_id, 10); 
@@ -161,15 +166,33 @@ export const storage = {
       localStorage.removeItem(STORAGE_KEYS.SESSION);
     }
   },
+  
+  // New: Register/Get user logic to simulate persisting users
+  getUser: (username: string): User | undefined => {
+    const users = safeParse<User[]>(STORAGE_KEYS.USERS, []);
+    return users.find(u => u.username === username);
+  },
+  
+  saveUser: (user: User) => {
+    const users = safeParse<User[]>(STORAGE_KEYS.USERS, []);
+    const existingIdx = users.findIndex(u => u.id === user.id);
+    if (existingIdx !== -1) {
+        users[existingIdx] = user;
+    } else {
+        users.push(user);
+    }
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  },
 
   // EXP & User Logic
   addExp: (userId: string, amount: number) => {
     const session = storage.getSession();
     if (session && session.id === userId) {
       session.exp += amount;
-      session.points += amount; // Give points same as exp for now
+      session.points += amount;
       session.level = getLevel(session.exp);
       storage.setSession(session);
+      storage.saveUser(session); // Sync to users list
     }
   },
 
@@ -180,6 +203,7 @@ export const storage = {
         if (!session.blocked_users.includes(targetId)) {
             session.blocked_users.push(targetId);
             storage.setSession(session);
+            storage.saveUser(session); // Sync
         }
     }
   },
@@ -201,6 +225,7 @@ export const storage = {
               if (item.type === 'badge') session.active_items.badge = item.value;
               
               storage.setSession(session);
+              storage.saveUser(session); // Sync
               return true;
           }
       }

@@ -60,6 +60,7 @@ export interface Post {
   view_count: number;
   upvotes: number;
   downvotes: number;
+  liked_users: string[]; // User IDs who upvoted to prevent duplicates
   created_at: string;
   author: Profile;
   comment_count: number;

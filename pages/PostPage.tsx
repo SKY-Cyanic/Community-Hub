@@ -39,6 +39,7 @@ const PostPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (postId) {
+        // Warning: getPost increments view count side effect
         const postData = await api.getPost(postId);
         setPost(postData);
         const commentData = await api.getComments(postId);
@@ -54,9 +55,25 @@ const PostPage: React.FC = () => {
         alert('로그인이 필요합니다.');
         return;
     }
-    await api.votePost(post.id, type);
-    const updated = await api.getPost(post.id);
-    if(updated) setPost(updated);
+
+    if (post.liked_users && post.liked_users.includes(user.id)) {
+        alert('이미 평가한 게시물입니다.');
+        return;
+    }
+
+    const success = await api.votePost(post.id, type, user.id);
+    if (success) {
+        // Manually update state to avoid re-fetching which increases view count
+        setPost(prev => {
+            if(!prev) return null;
+            return {
+                ...prev,
+                upvotes: type === 'up' ? prev.upvotes + 1 : prev.upvotes,
+                downvotes: type === 'down' ? prev.downvotes + 1 : prev.downvotes,
+                liked_users: [...(prev.liked_users || []), user.id]
+            }
+        });
+    }
   };
 
   const handlePollVote = (optionId: string) => {
@@ -109,6 +126,8 @@ const PostPage: React.FC = () => {
           </div>
       )
   }
+
+  const hasVoted = user && post.liked_users && post.liked_users.includes(user.id);
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm shadow-sm p-4 md:p-6 transition-colors">
@@ -163,14 +182,14 @@ const PostPage: React.FC = () => {
             {post.poll.options.map(opt => {
               const totalVotes = post.poll!.options.reduce((acc, curr) => acc + curr.votes, 0);
               const percent = totalVotes === 0 ? 0 : Math.round((opt.votes / totalVotes) * 100);
-              const hasVoted = post.poll!.voted_users.includes(user?.id || '');
+              const hasVotedPoll = post.poll!.voted_users.includes(user?.id || '');
               
               return (
                 <div key={opt.id} className="relative">
                   <button 
                     onClick={() => handlePollVote(opt.id)}
-                    disabled={hasVoted}
-                    className={`w-full text-left p-3 rounded border relative overflow-hidden transition-all ${hasVoted ? 'cursor-default' : 'hover:border-indigo-400'}`}
+                    disabled={hasVotedPoll}
+                    className={`w-full text-left p-3 rounded border relative overflow-hidden transition-all ${hasVotedPoll ? 'cursor-default' : 'hover:border-indigo-400'}`}
                     style={{ borderColor: 'transparent' }} // reset
                   >
                     <div className="absolute top-0 left-0 bottom-0 bg-indigo-100 dark:bg-indigo-900/40 z-0 transition-all duration-500" style={{ width: `${percent}%` }}></div>
@@ -198,21 +217,23 @@ const PostPage: React.FC = () => {
       <div className="flex justify-center space-x-4 my-8">
         <button 
             onClick={() => handleVote('up')}
-            className="group flex flex-col items-center justify-center w-20 h-20 rounded-full border-2 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            disabled={hasVoted || !user}
+            className={`group flex flex-col items-center justify-center w-20 h-20 rounded-full border-2 transition-colors ${hasVoted ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer'}`}
         >
           <ThumbsUp size={24} className="mb-1 group-active:scale-125 transition-transform" />
           <span className="font-bold text-lg">{post.upvotes}</span>
         </button>
         <button 
             onClick={() => handleVote('down')}
-            className="group flex flex-col items-center justify-center w-20 h-20 rounded-full border-2 border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            disabled={hasVoted || !user}
+            className={`group flex flex-col items-center justify-center w-20 h-20 rounded-full border-2 transition-colors ${hasVoted ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer'}`}
         >
           <ThumbsDown size={24} className="mb-1 group-active:scale-125 transition-transform" />
           <span className="font-bold text-lg">{post.downvotes}</span>
         </button>
       </div>
       <div className="text-center text-xs text-gray-400 mb-4">
-         단축키: 추천(W) / 목록(Q)
+         {hasVoted ? "이미 평가하셨습니다." : "단축키: 추천(W) / 목록(Q)"}
       </div>
 
       {/* Action Bar */}

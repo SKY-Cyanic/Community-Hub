@@ -385,9 +385,9 @@ const Layout: React.FC = () => {
               <p className="text-gray-500 text-xs">대한민국 트렌드가 시작되는 곳</p>
             </div>
             <div className="flex flex-wrap gap-4 md:gap-6 text-xs">
-              <a href="#" className="hover:text-white transition-colors">이용약관</a>
-              <a href="#" className="hover:text-white transition-colors">개인정보처리방침</a>
-              <a href="#" className="hover:text-white transition-colors">청소년보호정책</a>
+              <Link to="/terms" className="hover:text-white transition-colors">이용약관</Link>
+              <Link to="/privacy" className="hover:text-white transition-colors">개인정보처리방침</Link>
+              <Link to="/youth-policy" className="hover:text-white transition-colors">청소년보호정책</Link>
               <a href="#" className="hover:text-white transition-colors">광고/제휴 문의</a>
             </div>
           </div>

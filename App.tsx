@@ -10,6 +10,7 @@ import WritePage from './pages/WritePage';
 import MyPage from './pages/MyPage';
 import ShopPage from './pages/ShopPage';
 import WikiPage from './pages/WikiPage';
+import { TermsPage, PrivacyPage, YouthPolicyPage } from './pages/PolicyPages';
 
 function App() {
   return (
@@ -24,6 +25,9 @@ function App() {
             <Route path="mypage" element={<MyPage />} />
             <Route path="shop" element={<ShopPage />} />
             <Route path="wiki" element={<WikiPage />} />
+            <Route path="terms" element={<TermsPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
+            <Route path="youth-policy" element={<YouthPolicyPage />} />
           </Route>
         </Routes>
       </HashRouter>

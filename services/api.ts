@@ -46,6 +46,7 @@ export const api = {
       view_count: 0,
       upvotes: 0,
       downvotes: 0,
+      liked_users: [],
       created_at: new Date().toISOString(),
       author: {
         id: user.id,
@@ -92,14 +93,37 @@ export const api = {
     return newComment;
   },
   
-  votePost: async (postId: string, type: 'up' | 'down'): Promise<void> => {
+  votePost: async (postId: string, type: 'up' | 'down', userId: string): Promise<boolean> => {
       const posts = storage.getPosts();
       const postIndex = posts.findIndex(p => p.id === postId);
+      
       if (postIndex !== -1) {
-          if(type === 'up') posts[postIndex].upvotes++;
-          else posts[postIndex].downvotes++;
+          const post = posts[postIndex];
+          
+          // Ensure liked_users array exists (backward compatibility)
+          if (!post.liked_users) post.liked_users = [];
+
+          // Check if already voted
+          if (post.liked_users.includes(userId)) {
+              return false; // Already voted
+          }
+
+          if(type === 'up') {
+              posts[postIndex].upvotes++;
+          } else {
+              posts[postIndex].downvotes++;
+          }
+          
+          // Add user to voted list
+          posts[postIndex].liked_users.push(userId);
+          
+          // NOTE: Do NOT increment view_count here.
+          
+          // Update storage
           localStorage.setItem('k_community_posts', JSON.stringify(posts));
+          return true;
       }
+      return false;
   },
 
   // Wiki

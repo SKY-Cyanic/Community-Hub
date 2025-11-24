@@ -20,7 +20,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = () => {
     const sessionUser = storage.getSession();
     if (sessionUser) {
-      setUser(sessionUser);
+      // Re-sync with the 'users' list to get latest point/exp updates
+      const latestUser = storage.getUser(sessionUser.username) || sessionUser;
+      setUser(latestUser);
+      if (JSON.stringify(sessionUser) !== JSON.stringify(latestUser)) {
+          storage.setSession(latestUser);
+      }
     }
   };
 
@@ -30,21 +35,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = (username: string) => {
-    // Mock login logic
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      username: username,
-      level: 1,
-      email: `${username}@example.com`,
-      avatar_url: '',
-      exp: 0,
-      points: 100, // Give welcome points
-      inventory: [],
-      active_items: {},
-      blocked_users: []
-    };
-    setUser(newUser);
-    storage.setSession(newUser);
+    // Check if user exists
+    let targetUser = storage.getUser(username);
+
+    if (!targetUser) {
+        // Register new user
+        targetUser = {
+          id: `user-${Date.now()}`,
+          username: username,
+          level: 1,
+          email: `${username}@example.com`,
+          avatar_url: '',
+          exp: 0,
+          points: 100, // Give welcome points
+          inventory: [],
+          active_items: {},
+          blocked_users: []
+        };
+        storage.saveUser(targetUser);
+    }
+
+    setUser(targetUser);
+    storage.setSession(targetUser);
   };
 
   const logout = () => {
