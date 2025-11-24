@@ -1,30 +1,43 @@
-
 import React, { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { Board, Notification, User } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight } from 'lucide-react';
+import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight, Settings, Shield } from 'lucide-react';
 import { storage } from '../services/storage';
 import LiveChat from './LiveChat';
+
+const { Link, Outlet, useLocation } = ReactRouterDOM as any;
 
 // Extracted UserSection to prevent re-mount on parent render
 interface UserSectionProps {
   user: User | null;
   isLoading: boolean;
-  usernameInput: string;
-  setUsernameInput: (val: string) => void;
-  handleLogin: (e: React.FormEvent) => void;
   logout: () => void;
+  // Login props
+  loginInput: { username: string, password: string };
+  setLoginInput: React.Dispatch<React.SetStateAction<{username: string, password: string}>>;
+  handleLogin: (e: React.FormEvent) => void;
+  // Register props
+  registerInput: { username: string, password: string, secondPassword?: string };
+  setRegisterInput: React.Dispatch<React.SetStateAction<{username: string, password: string, secondPassword?: string}>>;
+  handleRegister: (e: React.FormEvent) => void;
 }
 
-const UserSection: React.FC<UserSectionProps> = ({ user, isLoading, usernameInput, setUsernameInput, handleLogin, logout }) => {
+const UserSection: React.FC<UserSectionProps> = ({ 
+    user, isLoading, logout, 
+    loginInput, setLoginInput, handleLogin,
+    registerInput, setRegisterInput, handleRegister
+}) => {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const expPercent = user ? Math.min(100, Math.max(0, (user.exp % 100) / 100 * 100)) : 0;
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-sm shadow-sm transition-colors">
-      <div className="text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">로그인 정보</div>
+      <div className="text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">
+          {user ? '로그인 정보' : '회원 서비스'}
+      </div>
       
       {isLoading ? (
         <div className="text-xs text-gray-500">로딩중...</div>
@@ -61,6 +74,11 @@ const UserSection: React.FC<UserSectionProps> = ({ user, isLoading, usernameInpu
                 <UserIcon size={14}/> 내 정보
              </Link>
           </div>
+          {user.is_admin && (
+              <Link to="/admin" className="flex items-center justify-center gap-1 w-full bg-gray-800 text-white text-xs font-bold py-2 rounded mb-3 hover:bg-gray-900 transition-colors">
+                  <Shield size={14} /> 관리자 페이지
+              </Link>
+          )}
           <button 
             onClick={logout} 
             className="w-full flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 py-1"
@@ -69,31 +87,85 @@ const UserSection: React.FC<UserSectionProps> = ({ user, isLoading, usernameInpu
           </button>
         </div>
       ) : (
-        <form onSubmit={handleLogin}>
-          <div className="space-y-2 mb-3">
-             <input 
-               type="text" 
-               placeholder="아이디" 
-               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm rounded focus:outline-none focus:border-indigo-500 dark:text-white"
-               value={usernameInput}
-               onChange={(e) => setUsernameInput(e.target.value)}
-               required
-             />
-             <input 
-               type="password" 
-               placeholder="비밀번호" 
-               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm rounded focus:outline-none focus:border-indigo-500 dark:text-white"
-               defaultValue="1234" 
-             />
-          </div>
-          <button type="submit" className="w-full bg-indigo-600 text-white text-sm font-bold py-2 rounded hover:bg-indigo-700 transition-colors">
-            로그인
-          </button>
-          <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-            <a href="#" className="hover:underline">회원가입</a>
-            <a href="#" className="hover:underline">아이디/비번 찾기</a>
-          </div>
-        </form>
+        <div>
+            <div className="flex border-b border-gray-200 dark:border-gray-600 mb-3">
+                <button 
+                    className={`flex-1 pb-2 text-xs font-bold ${activeTab === 'login' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400'}`}
+                    onClick={() => setActiveTab('login')}
+                >
+                    로그인
+                </button>
+                <button 
+                    className={`flex-1 pb-2 text-xs font-bold ${activeTab === 'register' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400'}`}
+                    onClick={() => setActiveTab('register')}
+                >
+                    회원가입
+                </button>
+            </div>
+
+            {activeTab === 'login' ? (
+                <form onSubmit={handleLogin}>
+                  <div className="space-y-2 mb-3">
+                     <input 
+                       type="text" 
+                       placeholder="아이디" 
+                       className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm rounded focus:outline-none focus:border-indigo-500 dark:text-white"
+                       value={loginInput.username}
+                       onChange={(e) => setLoginInput({...loginInput, username: e.target.value})}
+                       required
+                     />
+                     <input 
+                       type="password" 
+                       placeholder="비밀번호" 
+                       className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm rounded focus:outline-none focus:border-indigo-500 dark:text-white"
+                       value={loginInput.password}
+                       onChange={(e) => setLoginInput({...loginInput, password: e.target.value})}
+                       required
+                     />
+                  </div>
+                  <button type="submit" className="w-full bg-indigo-600 text-white text-sm font-bold py-2 rounded hover:bg-indigo-700 transition-colors">
+                    로그인
+                  </button>
+                </form>
+            ) : (
+                <form onSubmit={handleRegister}>
+                  <div className="space-y-2 mb-3">
+                     <input 
+                       type="text" 
+                       placeholder="사용할 아이디" 
+                       className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm rounded focus:outline-none focus:border-indigo-500 dark:text-white"
+                       value={registerInput.username}
+                       onChange={(e) => setRegisterInput({...registerInput, username: e.target.value})}
+                       required
+                     />
+                     <input 
+                       type="password" 
+                       placeholder="비밀번호" 
+                       className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm rounded focus:outline-none focus:border-indigo-500 dark:text-white"
+                       value={registerInput.password}
+                       onChange={(e) => setRegisterInput({...registerInput, password: e.target.value})}
+                       required
+                     />
+                     {registerInput.username.toLowerCase() === 'admin' && (
+                         <div className="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded border border-yellow-200 dark:border-yellow-900">
+                             <p className="text-[10px] text-yellow-800 dark:text-yellow-200 mb-1 font-bold">⚠️ 관리자 생성 감지</p>
+                             <input 
+                               type="password" 
+                               placeholder="2차 비밀번호 설정" 
+                               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm rounded focus:outline-none focus:border-indigo-500 dark:text-white"
+                               value={registerInput.secondPassword || ''}
+                               onChange={(e) => setRegisterInput({...registerInput, secondPassword: e.target.value})}
+                               required
+                             />
+                         </div>
+                     )}
+                  </div>
+                  <button type="submit" className="w-full bg-green-600 text-white text-sm font-bold py-2 rounded hover:bg-green-700 transition-colors">
+                    회원가입
+                  </button>
+                </form>
+            )}
+        </div>
       )}
     </div>
   );
@@ -102,10 +174,18 @@ const UserSection: React.FC<UserSectionProps> = ({ user, isLoading, usernameInpu
 const Layout: React.FC = () => {
   const [boards, setBoards] = useState<Board[]>([]);
   const location = useLocation();
-  const { user, login, logout, isLoading } = useAuth();
+  const { user, login, logout, register, verify2FA, isLoading, refreshUser } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
-  const [usernameInput, setUsernameInput] = useState('');
   
+  // Login State
+  const [loginInput, setLoginInput] = useState({ username: '', password: '' });
+  // Register State
+  const [registerInput, setRegisterInput] = useState<{username: string, password: string, secondPassword?: string}>({ username: '', password: '', secondPassword: '' });
+  
+  // 2FA Modal
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [twoFACode, setTwoFACode] = useState('');
+
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -116,7 +196,17 @@ const Layout: React.FC = () => {
 
   useEffect(() => {
     api.getBoards().then(setBoards);
-  }, []);
+    // Subscribe for cross-tab updates
+    const handleSync = (event: MessageEvent) => {
+        if (event.data.type === 'NOTI_UPDATE') {
+             if (user) {
+                setNotifications(storage.getNotifications(user.id));
+             }
+        }
+    };
+    storage.channel.addEventListener('message', handleSync);
+    return () => storage.channel.removeEventListener('message', handleSync);
+  }, [user]);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -139,9 +229,43 @@ const Layout: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (usernameInput.trim()) {
-      login(usernameInput);
+    if (loginInput.username.trim()) {
+      const result = login(loginInput.username, loginInput.password);
+      if (result.success) {
+          if (result.requires2FA) {
+              setShow2FAModal(true);
+          } else {
+              setLoginInput({ username: '', password: '' });
+          }
+      } else {
+          alert(result.message);
+      }
     }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (registerInput.username.trim() && registerInput.password.trim()) {
+          const result = await register(registerInput.username, registerInput.password, registerInput.secondPassword);
+          if (result.success) {
+              alert('환영합니다! 회원가입이 완료되었습니다.');
+              setRegisterInput({ username: '', password: '', secondPassword: '' });
+          } else {
+              alert(result.message);
+          }
+      }
+  };
+
+  const handle2FASubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (verify2FA(twoFACode)) {
+          setShow2FAModal(false);
+          setTwoFACode('');
+          setLoginInput({ username: '', password: '' });
+          alert('관리자 로그인 성공');
+      } else {
+          alert('2차 인증 코드가 일치하지 않습니다.');
+      }
   };
 
   const handleNotiClick = () => {
@@ -154,6 +278,43 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200 font-sans">
+      {/* 2FA Modal */}
+      {show2FAModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
+                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2 dark:text-white">
+                      <Shield className="text-indigo-600" /> 관리자 보안 인증
+                  </h2>
+                  <p className="text-sm text-gray-500 mb-4">설정하신 2차 비밀번호를 입력해주세요.</p>
+                  <form onSubmit={handle2FASubmit}>
+                      <input 
+                        type="password" 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 mb-4 dark:bg-gray-700 dark:text-white"
+                        placeholder="2차 비밀번호"
+                        value={twoFACode}
+                        onChange={(e) => setTwoFACode(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="flex gap-2 justify-end">
+                          <button 
+                            type="button" 
+                            onClick={() => { setShow2FAModal(false); logout(); }}
+                            className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm"
+                          >
+                              취소
+                          </button>
+                          <button 
+                            type="submit" 
+                            className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-bold hover:bg-indigo-700"
+                          >
+                              인증하기
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
       {/* Top GNB */}
       <header className="bg-indigo-700 dark:bg-gray-800 text-white sticky top-0 z-40 shadow-md transition-colors">
         <div className="container mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
@@ -284,9 +445,12 @@ const Layout: React.FC = () => {
                 <UserSection 
                    user={user} 
                    isLoading={isLoading} 
-                   usernameInput={usernameInput} 
-                   setUsernameInput={setUsernameInput} 
-                   handleLogin={handleLogin} 
+                   loginInput={loginInput}
+                   setLoginInput={setLoginInput}
+                   handleLogin={handleLogin}
+                   registerInput={registerInput}
+                   setRegisterInput={setRegisterInput}
+                   handleRegister={handleRegister}
                    logout={logout} 
                 />
 
@@ -341,9 +505,12 @@ const Layout: React.FC = () => {
              <UserSection 
                 user={user} 
                 isLoading={isLoading} 
-                usernameInput={usernameInput} 
-                setUsernameInput={setUsernameInput} 
-                handleLogin={handleLogin} 
+                loginInput={loginInput}
+                setLoginInput={setLoginInput}
+                handleLogin={handleLogin}
+                registerInput={registerInput}
+                setRegisterInput={setRegisterInput}
+                handleRegister={handleRegister}
                 logout={logout} 
              />
 

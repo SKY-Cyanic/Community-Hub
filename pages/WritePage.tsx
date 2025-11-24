@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
 import { Image as ImageIcon, Bold, Italic, Link as LinkIcon, AlertCircle, BarChart2, Youtube, X } from 'lucide-react';
+
+const { useNavigate } = ReactRouterDOM as any;
 
 const WritePage: React.FC = () => {
   const { user } = useAuth();

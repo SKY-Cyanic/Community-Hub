@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { api } from '../services/api';
-import { storage } from '../services/storage';
 import { WikiPage as WikiPageType } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Edit, Save, Clock, Search } from 'lucide-react';
@@ -20,8 +19,13 @@ const WikiPage: React.FC = () => {
 
   useEffect(() => {
       loadDoc(docSlug);
-      setRecentDocs(storage.getWikiPages().sort((a,b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()).slice(0, 5));
+      loadRecent();
   }, [docSlug]);
+
+  const loadRecent = async () => {
+      const pages = await api.getWikiPages();
+      setRecentDocs(pages.sort((a,b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()).slice(0, 5));
+  };
 
   const loadDoc = async (slug: string) => {
       const page = await api.getWikiPage(slug);
@@ -49,7 +53,7 @@ const WikiPage: React.FC = () => {
       await api.saveWikiPage(updatedDoc);
       setDoc(updatedDoc);
       setIsEditing(false);
-      setRecentDocs(storage.getWikiPages().sort((a,b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()).slice(0, 5));
+      loadRecent();
   };
 
   return (

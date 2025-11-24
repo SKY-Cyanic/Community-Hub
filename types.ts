@@ -2,6 +2,9 @@
 export interface User {
   id: string;
   username: string;
+  password?: string; // Hashed or plain for demo
+  second_password?: string; // For Admin 2FA
+  is_admin?: boolean;
   avatar_url?: string;
   email?: string;
   level: number;
@@ -28,6 +31,7 @@ export interface Profile {
     name_style?: 'normal' | 'bold';
     badge?: string;
   };
+  is_admin?: boolean;
 }
 
 export interface Board {

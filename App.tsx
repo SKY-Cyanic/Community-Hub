@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
@@ -10,7 +9,10 @@ import WritePage from './pages/WritePage';
 import MyPage from './pages/MyPage';
 import ShopPage from './pages/ShopPage';
 import WikiPage from './pages/WikiPage';
+import AdminPage from './pages/AdminPage';
 import { TermsPage, PrivacyPage, YouthPolicyPage } from './pages/PolicyPages';
+
+const { HashRouter, Routes, Route } = ReactRouterDOM as any;
 
 function App() {
   return (
@@ -25,6 +27,7 @@ function App() {
             <Route path="mypage" element={<MyPage />} />
             <Route path="shop" element={<ShopPage />} />
             <Route path="wiki" element={<WikiPage />} />
+            <Route path="admin" element={<AdminPage />} />
             <Route path="terms" element={<TermsPage />} />
             <Route path="privacy" element={<PrivacyPage />} />
             <Route path="youth-policy" element={<YouthPolicyPage />} />

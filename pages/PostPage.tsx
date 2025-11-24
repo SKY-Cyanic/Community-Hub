@@ -1,12 +1,13 @@
-
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
 import { Post, Comment, Poll } from '../types';
 import CommentSection from '../components/CommentSection';
-import { ThumbsUp, ThumbsDown, Share2, AlertTriangle, Eye, Clock, BarChart2, Ban } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Share2, AlertTriangle, Eye, Clock, BarChart2, Ban, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+const { useParams, Link, useNavigate } = ReactRouterDOM as any;
 
 const PostPage: React.FC = () => {
   const { boardId, postId } = useParams<{ boardId: string; postId: string }>();
@@ -96,6 +97,15 @@ const PostPage: React.FC = () => {
     setPost(updatedPost);
   };
 
+  const handleDelete = async () => {
+      if (!post) return;
+      if (confirm('정말로 게시글을 삭제하시겠습니까?')) {
+          await api.deletePost(post.id);
+          alert('게시글이 삭제되었습니다.');
+          navigate(`/board/${boardId}`);
+      }
+  };
+
   const handleBlock = (targetId: string) => {
       if(!user) return;
       if(confirm('이 사용자를 차단하시겠습니까?')) {
@@ -128,6 +138,12 @@ const PostPage: React.FC = () => {
   }
 
   const hasVoted = user && post.liked_users && post.liked_users.includes(user.id);
+  
+  // Delete Logic
+  const canDelete = user && (
+      user.is_admin || 
+      (user.id === post.author_id && (Date.now() - new Date(post.created_at).getTime()) < 24 * 60 * 60 * 1000)
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm shadow-sm p-4 md:p-6 transition-colors">
@@ -245,6 +261,14 @@ const PostPage: React.FC = () => {
            <button className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm hover:text-red-600 px-2 py-1">
              <AlertTriangle size={16} /> 신고
            </button>
+           {canDelete && (
+             <button 
+                onClick={handleDelete}
+                className="flex items-center gap-1 text-red-500 text-sm hover:text-red-700 px-2 py-1"
+             >
+                <Trash2 size={16} /> 삭제
+             </button>
+           )}
          </div>
          <Link to={`/board/${boardId}`} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
            목록으로

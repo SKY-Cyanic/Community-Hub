@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { api } from '../services/api';
 import { Post, Board } from '../types';
 import PostList from '../components/PostList';
 import { PenTool, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+const { useParams, Link, useNavigate } = ReactRouterDOM as any;
 
 const BoardPage: React.FC = () => {
   const { boardId } = useParams<{ boardId: string }>();

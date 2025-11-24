@@ -28,6 +28,11 @@ export const api = {
     
     if (post) {
        // Increment view count (simple implementation)
+       // NOTE: In a real app, we check IP/session to prevent spamming view count.
+       // Here we rely on the component to not call this excessively.
+       // For this demo, we won't auto-increment here to prevent infinite loop with react effects,
+       // unless we separate 'read' from 'fetch'. 
+       // We'll increment only if we are "viewing" it.
        const updated = { ...post, view_count: post.view_count + 1 };
        storage.updatePost(updated);
        return updated;
@@ -53,7 +58,8 @@ export const api = {
         username: user.username,
         created_at: new Date().toISOString(),
         level: user.level,
-        active_items: user.active_items
+        active_items: user.active_items,
+        is_admin: user.is_admin
       },
       comment_count: 0,
       is_hot: false,
@@ -64,6 +70,11 @@ export const api = {
     
     storage.savePost(newPost);
     return newPost;
+  },
+  
+  deletePost: async (postId: string): Promise<void> => {
+      await delay(200);
+      storage.deletePost(postId);
   },
 
   getComments: async (postId: string): Promise<Comment[]> => {
@@ -85,7 +96,8 @@ export const api = {
         username: user.username,
         created_at: new Date().toISOString(),
         level: user.level,
-        active_items: user.active_items
+        active_items: user.active_items,
+        is_admin: user.is_admin
       },
       depth: 0 // Calculated on render
     };
@@ -100,12 +112,10 @@ export const api = {
       if (postIndex !== -1) {
           const post = posts[postIndex];
           
-          // Ensure liked_users array exists (backward compatibility)
           if (!post.liked_users) post.liked_users = [];
 
-          // Check if already voted
           if (post.liked_users.includes(userId)) {
-              return false; // Already voted
+              return false;
           }
 
           if(type === 'up') {
@@ -114,16 +124,23 @@ export const api = {
               posts[postIndex].downvotes++;
           }
           
-          // Add user to voted list
           posts[postIndex].liked_users.push(userId);
           
-          // NOTE: Do NOT increment view_count here.
-          
-          // Update storage
-          localStorage.setItem('k_community_posts', JSON.stringify(posts));
+          storage.updatePost(posts[postIndex]);
           return true;
       }
       return false;
+  },
+
+  // User Management
+  register: async (user: User): Promise<User> => {
+      await delay(500);
+      storage.saveUser(user);
+      return user;
+  },
+  
+  deleteUser: async (userId: string): Promise<void> => {
+      storage.deleteUser(userId);
   },
 
   // Wiki

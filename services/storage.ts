@@ -11,6 +11,13 @@ const STORAGE_KEYS = {
   CHAT: 'k_community_chat',
 };
 
+// Broadcast Channel for Cross-Tab Sync
+const channel = new BroadcastChannel('k_community_sync');
+
+export const notifyChanges = (type: string) => {
+  channel.postMessage({ type, timestamp: Date.now() });
+};
+
 // Initial Seed Data
 const SEED_BOARDS: Board[] = [
   { id: '1', slug: 'free', name: '자유게시판', description: '자유롭게 이야기를 나누는 공간입니다.', categories: ['잡담', '질문', '후기'] },
@@ -21,7 +28,9 @@ const SEED_BOARDS: Board[] = [
 
 const ADMIN_USER: User = {
   id: 'admin',
-  username: '운영자',
+  username: 'admin',
+  password: 'admin_password_placeholder', // Should be overwritten by real registration
+  is_admin: true,
   level: 99,
   exp: 999999,
   points: 999999,
@@ -50,7 +59,7 @@ const generateFakeIP = () => {
 // EXP Table
 const getLevel = (exp: number) => Math.floor(exp / 100) + 1;
 
-// Fixed: Reset manipulated view counts to realistic numbers
+// Seed posts
 const SEED_POSTS: Post[] = [
   {
     id: 'notice-free',
@@ -59,12 +68,12 @@ const SEED_POSTS: Post[] = [
     category: '공지',
     title: '[공지] 자유게시판 이용 수칙 및 가이드라인',
     content: '<p><strong>안녕하세요, K-Community Hub입니다.</strong></p><p><br></p><p>자유게시판은 누구나 자유롭게 이야기를 나누는 공간입니다.</p><p>단, 욕설, 비방, 도배, 광고성 게시물은 예고 없이 삭제될 수 있으며 이용이 제한될 수 있습니다.</p><p><br></p><p>서로 존중하며 즐거운 커뮤니티를 만들어주세요.</p>',
-    view_count: 120, // Reset from 45210
-    upvotes: 15, // Reset
+    view_count: 120,
+    upvotes: 15,
     downvotes: 0,
     liked_users: [],
     created_at: new Date('2024-01-01T09:00:00').toISOString(),
-    author: { ...ADMIN_USER, created_at: new Date().toISOString() },
+    author: { ...ADMIN_USER, username: '운영자', created_at: new Date().toISOString() },
     comment_count: 5,
     is_hot: true,
     has_image: false,
@@ -77,12 +86,12 @@ const SEED_POSTS: Post[] = [
     category: '공지',
     title: '[공지] 유머게시판 베스트 선정 기준 안내',
     content: '<p>추천 수 10개 이상을 받을 시 실시간 베스트로 자동 이동됩니다.</p><p>중복 자료는 자제 부탁드립니다.</p>',
-    view_count: 85, // Reset
+    view_count: 85,
     upvotes: 10,
     downvotes: 0,
     liked_users: [],
     created_at: new Date('2024-01-02T10:30:00').toISOString(),
-    author: { ...ADMIN_USER, created_at: new Date().toISOString() },
+    author: { ...ADMIN_USER, username: '운영자', created_at: new Date().toISOString() },
     comment_count: 2,
     is_hot: true,
     has_image: false,
@@ -102,6 +111,9 @@ const safeParse = <T>(key: string, fallback: T): T => {
 };
 
 export const storage = {
+  // Expose channel for listener registration
+  channel,
+
   getBoards: (): Board[] => SEED_BOARDS,
 
   getPosts: (): Post[] => {
@@ -115,7 +127,8 @@ export const storage = {
     if (!post.liked_users) post.liked_users = [];
     posts.unshift(post);
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
-    storage.addExp(post.author_id, 10); 
+    storage.addExp(post.author_id, 10);
+    notifyChanges('POST_UPDATE');
   },
 
   updatePost: (updatedPost: Post) => {
@@ -124,7 +137,15 @@ export const storage = {
      if (index !== -1) {
        posts[index] = updatedPost;
        localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+       notifyChanges('POST_UPDATE');
      }
+  },
+
+  deletePost: (postId: string) => {
+    let posts = storage.getPosts();
+    posts = posts.filter(p => p.id !== postId);
+    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+    notifyChanges('POST_UPDATE');
   },
 
   getComments: (): Comment[] => safeParse<Comment[]>(STORAGE_KEYS.COMMENTS, []),
@@ -155,6 +176,7 @@ export const storage = {
         link: `/board/${posts[postIndex].board_id}/${comment.post_id}`
       });
     }
+    notifyChanges('COMMENT_UPDATE');
   },
 
   getSession: (): User | null => safeParse<User | null>(STORAGE_KEYS.SESSION, null),
@@ -165,16 +187,20 @@ export const storage = {
     } else {
       localStorage.removeItem(STORAGE_KEYS.SESSION);
     }
+    notifyChanges('SESSION_UPDATE');
   },
   
-  // New: Register/Get user logic to simulate persisting users
+  getUsers: (): User[] => {
+    return safeParse<User[]>(STORAGE_KEYS.USERS, []);
+  },
+
   getUser: (username: string): User | undefined => {
-    const users = safeParse<User[]>(STORAGE_KEYS.USERS, []);
+    const users = storage.getUsers();
     return users.find(u => u.username === username);
   },
   
   saveUser: (user: User) => {
-    const users = safeParse<User[]>(STORAGE_KEYS.USERS, []);
+    const users = storage.getUsers();
     const existingIdx = users.findIndex(u => u.id === user.id);
     if (existingIdx !== -1) {
         users[existingIdx] = user;
@@ -182,50 +208,82 @@ export const storage = {
         users.push(user);
     }
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    notifyChanges('USER_UPDATE');
+  },
+
+  deleteUser: (userId: string) => {
+    let users = storage.getUsers();
+    users = users.filter(u => u.id !== userId);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    notifyChanges('USER_UPDATE');
   },
 
   // EXP & User Logic
   addExp: (userId: string, amount: number) => {
-    const session = storage.getSession();
-    if (session && session.id === userId) {
-      session.exp += amount;
-      session.points += amount;
-      session.level = getLevel(session.exp);
-      storage.setSession(session);
-      storage.saveUser(session); // Sync to users list
+    const users = storage.getUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex !== -1) {
+      users[userIndex].exp += amount;
+      users[userIndex].points += amount;
+      users[userIndex].level = getLevel(users[userIndex].exp);
+      
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      
+      // Update session if it's the current user
+      const session = storage.getSession();
+      if (session && session.id === userId) {
+         storage.setSession(users[userIndex]);
+      } else {
+         notifyChanges('USER_UPDATE');
+      }
     }
   },
 
   // User Blocking
   blockUser: (blockerId: string, targetId: string) => {
-    const session = storage.getSession();
-    if (session && session.id === blockerId) {
-        if (!session.blocked_users.includes(targetId)) {
-            session.blocked_users.push(targetId);
-            storage.setSession(session);
-            storage.saveUser(session); // Sync
+    const users = storage.getUsers();
+    const idx = users.findIndex(u => u.id === blockerId);
+    if (idx !== -1) {
+        if (!users[idx].blocked_users.includes(targetId)) {
+            users[idx].blocked_users.push(targetId);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+            
+            const session = storage.getSession();
+            if (session && session.id === blockerId) {
+                storage.setSession(users[idx]);
+            } else {
+                notifyChanges('USER_UPDATE');
+            }
         }
     }
   },
 
   // Shop
   buyItem: (userId: string, itemId: string): boolean => {
-      const session = storage.getSession();
+      const users = storage.getUsers();
+      const idx = users.findIndex(u => u.id === userId);
       const item = SHOP_ITEMS.find(i => i.id === itemId);
       
-      if (session && item && session.id === userId) {
-          if (session.points >= item.price) {
-              session.points -= item.price;
-              if (!session.inventory.includes(itemId)) {
-                  session.inventory.push(itemId);
+      if (idx !== -1 && item) {
+          if (users[idx].points >= item.price) {
+              users[idx].points -= item.price;
+              if (!users[idx].inventory.includes(itemId)) {
+                  users[idx].inventory.push(itemId);
               }
               // Auto equip
-              if (item.type === 'color') session.active_items.name_color = item.value;
-              if (item.type === 'style' && item.value === 'bold') session.active_items.name_style = 'bold';
-              if (item.type === 'badge') session.active_items.badge = item.value;
+              if (item.type === 'color') users[idx].active_items.name_color = item.value;
+              if (item.type === 'style' && item.value === 'bold') users[idx].active_items.name_style = 'bold';
+              if (item.type === 'badge') users[idx].active_items.badge = item.value;
               
-              storage.setSession(session);
-              storage.saveUser(session); // Sync
+              localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+              const session = storage.getSession();
+              if (session && session.id === userId) {
+                  storage.setSession(users[idx]);
+              } else {
+                  notifyChanges('USER_UPDATE');
+              }
               return true;
           }
       }
@@ -251,12 +309,14 @@ export const storage = {
     };
     allnotes.push(newNote);
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(allnotes));
+    notifyChanges('NOTI_UPDATE');
   },
 
   markNotificationsRead: (userId: string) => {
     const allnotes = safeParse<Notification[]>(STORAGE_KEYS.NOTIFICATIONS, []);
     const updated = allnotes.map(n => n.user_id === userId ? { ...n, is_read: true } : n);
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+    notifyChanges('NOTI_UPDATE');
   },
 
   // Wiki
@@ -276,6 +336,7 @@ export const storage = {
           pages.push(page);
       }
       localStorage.setItem(STORAGE_KEYS.WIKI, JSON.stringify(pages));
+      notifyChanges('WIKI_UPDATE');
   },
 
   // Chat
@@ -287,5 +348,6 @@ export const storage = {
       // Keep last 50
       if (msgs.length > 50) msgs.shift();
       localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(msgs));
+      notifyChanges('CHAT_UPDATE');
   }
 };
