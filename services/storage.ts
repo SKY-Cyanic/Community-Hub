@@ -18,13 +18,6 @@ export const notifyChanges = (type: string) => {
   channel.postMessage({ type, timestamp: Date.now() });
 };
 
-// --- CLOUD SYNC CONFIGURATION ---
-// Using a public JSONBlob as a shared database.
-// In a real app, this would be a backend API URL.
-// We use a fixed ID so all users of this code connect to the same "room".
-const CLOUD_ID = "1346928423034191872"; 
-const CLOUD_API_URL = `https://jsonblob.com/api/jsonBlob/${CLOUD_ID}`;
-
 // Initial Seed Data
 const SEED_BOARDS: Board[] = [
   { id: '1', slug: 'free', name: '자유게시판', description: '자유롭게 이야기를 나누는 공간입니다.', categories: ['잡담', '질문', '후기'] },
@@ -117,84 +110,9 @@ const safeParse = <T>(key: string, fallback: T): T => {
   }
 };
 
-// --- CLOUD SYNC LOGIC ---
-let isSyncing = false;
-
-const cloudSync = {
-  // Download data from cloud and update local storage
-  load: async () => {
-    if (isSyncing) return;
-    try {
-      const response = await fetch(CLOUD_API_URL);
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Only update if data exists
-        if (data && typeof data === 'object') {
-          // Compare timestamps or hashes in a real app. 
-          // Here we simply overwrite if remote has data to ensure sync.
-          if (data.posts) localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(data.posts));
-          if (data.comments) localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(data.comments));
-          if (data.users) localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(data.users));
-          if (data.wiki) localStorage.setItem(STORAGE_KEYS.WIKI, JSON.stringify(data.wiki));
-          if (data.chat) localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(data.chat));
-          if (data.notifications) localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
-          
-          // Trigger UI update
-          notifyChanges('CLOUD_SYNC');
-        }
-      } else if (response.status === 404) {
-        // If blob doesn't exist, create it with current local data
-        console.log('Cloud storage not found. Initializing...');
-        await cloudSync.save(); 
-      }
-    } catch (e) {
-      console.warn('Cloud sync failed:', e);
-    }
-  },
-
-  // Upload current local storage to cloud
-  save: async () => {
-    if (isSyncing) return;
-    isSyncing = true;
-    try {
-      const payload = {
-        posts: safeParse(STORAGE_KEYS.POSTS, SEED_POSTS),
-        comments: safeParse(STORAGE_KEYS.COMMENTS, []),
-        users: safeParse(STORAGE_KEYS.USERS, []),
-        wiki: safeParse(STORAGE_KEYS.WIKI, []),
-        chat: safeParse(STORAGE_KEYS.CHAT, []),
-        notifications: safeParse(STORAGE_KEYS.NOTIFICATIONS, []),
-        lastUpdated: Date.now()
-      };
-
-      // First, try to fetch the latest to merge (simple merge: append posts not present?)
-      // For this simple no-db requirement, we will do a direct write (Last Write Wins)
-      // But ideally we should fetch -> merge -> save. 
-      // To make "others see my posts" work without complex conflict resolution:
-      const response = await fetch(CLOUD_API_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-         // If 404/Error on PUT, try POST to create (though jsonblob usually requires explicit creation or put to valid ID)
-         // Since we use a fixed ID, if it expires, we might need a fallback mechanism or users need to manually update URL.
-         // For this demo, we assume the ID is accessible.
-         console.error('Failed to save to cloud', response.status);
-      }
-    } catch (e) {
-      console.error('Cloud save error:', e);
-    } finally {
-      isSyncing = false;
-    }
-  }
-};
-
 export const storage = {
+  // Expose channel for listener registration
   channel,
-  cloudSync, // Expose for Layout polling
 
   getBoards: (): Board[] => SEED_BOARDS,
 
@@ -211,7 +129,6 @@ export const storage = {
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     storage.addExp(post.author_id, 10);
     notifyChanges('POST_UPDATE');
-    cloudSync.save(); // Sync to cloud
   },
 
   updatePost: (updatedPost: Post) => {
@@ -221,7 +138,6 @@ export const storage = {
        posts[index] = updatedPost;
        localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
        notifyChanges('POST_UPDATE');
-       cloudSync.save(); // Sync to cloud
      }
   },
 
@@ -230,7 +146,6 @@ export const storage = {
     posts = posts.filter(p => p.id !== postId);
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     notifyChanges('POST_UPDATE');
-    cloudSync.save(); // Sync to cloud
   },
 
   getComments: (): Comment[] => safeParse<Comment[]>(STORAGE_KEYS.COMMENTS, []),
@@ -262,7 +177,6 @@ export const storage = {
       });
     }
     notifyChanges('COMMENT_UPDATE');
-    cloudSync.save(); // Sync to cloud
   },
 
   getSession: (): User | null => safeParse<User | null>(STORAGE_KEYS.SESSION, null),
@@ -295,7 +209,6 @@ export const storage = {
     }
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     notifyChanges('USER_UPDATE');
-    cloudSync.save(); // Sync to cloud
   },
 
   deleteUser: (userId: string) => {
@@ -303,7 +216,6 @@ export const storage = {
     users = users.filter(u => u.id !== userId);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     notifyChanges('USER_UPDATE');
-    cloudSync.save(); // Sync to cloud
   },
 
   // EXP & User Logic
@@ -325,7 +237,6 @@ export const storage = {
       } else {
          notifyChanges('USER_UPDATE');
       }
-      cloudSync.save(); // Sync to cloud
     }
   },
 
@@ -344,7 +255,6 @@ export const storage = {
             } else {
                 notifyChanges('USER_UPDATE');
             }
-            cloudSync.save(); // Sync to cloud
         }
     }
   },
@@ -374,7 +284,6 @@ export const storage = {
               } else {
                   notifyChanges('USER_UPDATE');
               }
-              cloudSync.save(); // Sync to cloud
               return true;
           }
       }
@@ -401,7 +310,6 @@ export const storage = {
     allnotes.push(newNote);
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(allnotes));
     notifyChanges('NOTI_UPDATE');
-    cloudSync.save(); // Sync to cloud
   },
 
   markNotificationsRead: (userId: string) => {
@@ -409,7 +317,6 @@ export const storage = {
     const updated = allnotes.map(n => n.user_id === userId ? { ...n, is_read: true } : n);
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
     notifyChanges('NOTI_UPDATE');
-    cloudSync.save(); // Sync to cloud
   },
 
   // Wiki
@@ -430,7 +337,6 @@ export const storage = {
       }
       localStorage.setItem(STORAGE_KEYS.WIKI, JSON.stringify(pages));
       notifyChanges('WIKI_UPDATE');
-      cloudSync.save(); // Sync to cloud
   },
 
   // Chat
@@ -443,6 +349,5 @@ export const storage = {
       if (msgs.length > 50) msgs.shift();
       localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(msgs));
       notifyChanges('CHAT_UPDATE');
-      cloudSync.save(); // Sync to cloud
   }
 };

@@ -5,7 +5,7 @@ import { Board, Notification, User } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight, Settings, Shield, Cloud, RefreshCw } from 'lucide-react';
+import { Menu, Search, Bell, User as UserIcon, LogOut, PenTool, Moon, Sun, ShoppingBag, BookOpen, X, Home, ChevronRight, Settings, Shield } from 'lucide-react';
 import { storage } from '../services/storage';
 import LiveChat from './LiveChat';
 
@@ -193,40 +193,19 @@ const Layout: React.FC = () => {
   const [showNoti, setShowNoti] = useState(false);
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  // Cloud Sync Status
-  const [lastSyncTime, setLastSyncTime] = useState<string>('');
-
   useEffect(() => {
     api.getBoards().then(setBoards);
-    // Subscribe for cross-tab updates and Cloud Sync Updates
+    // Subscribe for cross-tab updates
     const handleSync = (event: MessageEvent) => {
         if (event.data.type === 'NOTI_UPDATE') {
              if (user) {
                 setNotifications(storage.getNotifications(user.id));
              }
         }
-        // Refresh boards/posts if cloud sync happens
-        if (event.data.type === 'CLOUD_SYNC') {
-            setLastSyncTime(new Date().toLocaleTimeString());
-            // Force re-fetch is handled by pages subscribing to change, 
-            // but we might need to update global states if any.
-        }
     };
     storage.channel.addEventListener('message', handleSync);
     return () => storage.channel.removeEventListener('message', handleSync);
   }, [user]);
-
-  // Polling for Cloud Sync (Every 4 seconds)
-  useEffect(() => {
-      const pollInterval = setInterval(() => {
-          storage.cloudSync.load();
-      }, 4000);
-      
-      // Initial load
-      storage.cloudSync.load();
-
-      return () => clearInterval(pollInterval);
-  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -569,11 +548,7 @@ const Layout: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h5 className="text-white font-bold text-lg mb-1 flex items-center gap-2">K-Community Hub</h5>
-              <div className="flex items-center gap-2 text-xs text-green-400 font-mono">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                  Cloud Sync Active {lastSyncTime && `(${lastSyncTime})`}
-              </div>
-              <p className="text-gray-500 text-xs mt-2">대한민국 트렌드가 시작되는 곳</p>
+              <p className="text-gray-500 text-xs">대한민국 트렌드가 시작되는 곳</p>
             </div>
             <div className="flex flex-wrap gap-4 md:gap-6 text-xs">
               <Link to="/terms" className="hover:text-white transition-colors">이용약관</Link>
