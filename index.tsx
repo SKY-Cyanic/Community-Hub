@@ -1,4 +1,4 @@
-import React, { ReactNode, ErrorInfo } from 'react';
+import React, { ReactNode, ErrorInfo, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from './context/ThemeContext';
@@ -12,17 +12,8 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix ErrorBoundary component to properly access props and handle generic types
-// Using React.Component explicitly ensures that the TypeScript compiler recognizes state and props properties on the class instance.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Explicitly declare state to satisfy type checking
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    // Properly initialize state in constructor
-    this.state = { hasError: false, error: null };
-  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -33,7 +24,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Access state properly now that the component is correctly typed
     const { hasError, error } = this.state;
     if (hasError) {
       return (
@@ -53,7 +43,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    // Access props.children with correct typing
     return this.props.children;
   }
 }

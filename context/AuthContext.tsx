@@ -77,6 +77,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true, message: '2차 인증이 필요합니다.', requires2FA: true };
     }
 
+    // Handle Daily Login Quest logic
+    const today = new Date().toISOString().split('T')[0];
+    if (!targetUser.quests || targetUser.quests.last_updated !== today) {
+         targetUser.quests = {
+             last_updated: today,
+             daily_login: true,
+             post_count: 0,
+             comment_count: 0
+         };
+         targetUser.points += 10; // Login Reward
+         storage.saveUser(targetUser);
+         storage.sendNotification({
+             user_id: targetUser.id, type: 'system', message: '일일 프로토콜: 접속 완료 (+10P)', link: '/mypage'
+         });
+    }
+
     setUser(targetUser);
     storage.setSession(targetUser);
     return { success: true, message: '로그인 성공' };
@@ -99,6 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const isAdmin = username.toLowerCase() === 'admin';
+      const today = new Date().toISOString().split('T')[0];
       
       const newUser: User = {
           id: `user-${Date.now()}`,
@@ -113,7 +130,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           points: 100, // Welcome points
           inventory: [],
           active_items: isAdmin ? { name_color: '#FF0000', name_style: 'bold', badge: '👑' } : {},
-          blocked_users: []
+          blocked_users: [],
+          scrapped_posts: [],
+          quests: {
+              last_updated: today,
+              daily_login: true,
+              post_count: 0,
+              comment_count: 0
+          }
       };
 
       storage.saveUser(newUser);

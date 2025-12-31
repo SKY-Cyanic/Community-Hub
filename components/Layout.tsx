@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 import { 
   Menu, User as UserIcon, LogOut, PenTool, Moon, Sun, 
   BookOpen, Cpu, Sparkles, Home, ShoppingBag, 
-  ChevronRight, Bell, MessageSquare
+  ChevronRight, Bell, Zap
 } from 'lucide-react';
 import { storage } from '../services/storage';
 import LiveChat from './LiveChat';
@@ -24,8 +24,6 @@ const NotificationDropdown: React.FC<{ userId: string, close: () => void }> = ({
     const handleRead = async (id: string, link: string) => {
         await storage.markNotificationAsRead(id);
         close();
-        // Link navigation happens automatically by parent Link component, 
-        // but we ensure status update
     };
 
     const handleReadAll = async () => {
@@ -63,6 +61,29 @@ const NotificationDropdown: React.FC<{ userId: string, close: () => void }> = ({
                         </Link>
                     ))
                 )}
+            </div>
+        </div>
+    );
+};
+
+const TrendTicker: React.FC = () => {
+    const trends = ["#React19", "#CyberDeck", "#KOSPI", "#Ethereum", "#NodeProtocol", "#IndieDev", "#SeoulWeather", "#GameJam"];
+    return (
+        <div className="bg-black text-cyan-400 h-8 overflow-hidden flex items-center relative border-b border-gray-800">
+            <div className="px-3 bg-black z-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border-r border-gray-800 h-full">
+                <Zap size={10} className="text-yellow-400 animate-pulse"/> LIVE TREND
+            </div>
+            <div className="whitespace-nowrap animate-marquee flex gap-8 items-center px-4">
+                {trends.map((t, i) => (
+                    <span key={i} className="text-xs font-mono opacity-80 hover:opacity-100 cursor-pointer hover:text-white transition-colors">
+                        {t} <span className="text-[9px] text-gray-500">▲ {Math.floor(Math.random()*100)}%</span>
+                    </span>
+                ))}
+                {trends.map((t, i) => (
+                    <span key={`dup-${i}`} className="text-xs font-mono opacity-80 hover:opacity-100 cursor-pointer hover:text-white transition-colors">
+                        {t} <span className="text-[9px] text-gray-500">▲ {Math.floor(Math.random()*100)}%</span>
+                    </span>
+                ))}
             </div>
         </div>
     );
@@ -110,6 +131,25 @@ const UserSection: React.FC<any> = ({
               </div>
             </div>
           </div>
+          
+          {/* Quest Mini Tracker */}
+          {user.quests && (
+              <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs space-y-1 border border-gray-100 dark:border-gray-700">
+                  <div className="font-bold text-[10px] text-gray-400 uppercase flex justify-between">
+                      <span>Daily Protocol</span>
+                      <span>{Math.round(((user.quests.daily_login ? 1:0) + (user.quests.post_count > 0 ? 1:0) + (user.quests.comment_count >= 3 ? 1:0))/3 * 100)}%</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <div className={`w-2 h-2 rounded-full ${user.quests.daily_login ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span>Login</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <div className={`w-2 h-2 rounded-full ${user.quests.post_count > 0 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span>Write Post</span>
+                  </div>
+              </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <Link to="/write" className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-transform active:scale-95 ${isAiHubMode ? 'bg-cyan-500 text-black' : 'bg-indigo-600 text-white'}`}>
               <PenTool size={14} /> 글쓰기
@@ -216,7 +256,7 @@ const Layout: React.FC = () => {
               <Cpu className="text-white" size={20} />
             </div>
             <span className={`text-lg font-black tracking-tighter ${isAiHubMode ? 'font-ai text-cyan-400' : 'text-gray-900 dark:text-white'}`}>
-              AI-HUB <span className="text-xs font-normal opacity-50 ml-1">v2.5</span>
+              AI-HUB <span className="text-xs font-normal opacity-50 ml-1">PRO</span>
             </span>
           </Link>
 
@@ -241,6 +281,8 @@ const Layout: React.FC = () => {
              {isNotifOpen && user && <NotificationDropdown userId={user.id} close={() => setIsNotifOpen(false)} />}
           </div>
         </div>
+        {/* Trend Ticker Component */}
+        <TrendTicker />
       </header>
 
       {/* Main Content */}

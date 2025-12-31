@@ -3,10 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
-import { aiService } from '../services/ai';
-import { Post, Comment, Poll } from '../types';
+import { Post, Comment } from '../types';
 import CommentSection from '../components/CommentSection';
-import { ThumbsUp, ThumbsDown, Share2, AlertTriangle, Eye, Clock, BarChart2, Ban, Trash2, Zap, Search, Sparkles } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Share2, Eye, Clock, BarChart2, Ban, Trash2, Bookmark, Sparkles, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const PostPage: React.FC = () => {
@@ -17,14 +16,7 @@ const PostPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAuthorMenu, setShowAuthorMenu] = useState(false);
   const { user, refreshUser } = useAuth();
-
-  const [showSummary, setShowSummary] = useState(false);
-  const [summaryText, setSummaryText] = useState('');
-  const [isSummarizing, setIsSummarizing] = useState(false);
-
-  const [showFactCheck, setShowFactCheck] = useState(false);
-  const [factCheckResult, setFactCheckResult] = useState<{text: string, sources: {title:string, uri:string}[]} | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
+  const [isScrapped, setIsScrapped] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,25 +35,13 @@ const PostPage: React.FC = () => {
     fetchData();
   }, [postId]);
 
-  const handleSummarize = async () => {
-    if (summaryText) return;
-    setIsSummarizing(true);
-    if (post) {
-        const result = await aiService.summarize(post.content);
-        setSummaryText(result);
-    }
-    setIsSummarizing(false);
-  };
-
-  const handleFactCheck = async () => {
-    if (factCheckResult) return;
-    setIsChecking(true);
-    if (post) {
-        const result = await aiService.factCheck(post.content);
-        setFactCheckResult(result);
-    }
-    setIsChecking(false);
-  };
+  useEffect(() => {
+      if (user && post && user.scrapped_posts?.includes(post.id)) {
+          setIsScrapped(true);
+      } else {
+          setIsScrapped(false);
+      }
+  }, [user, post]);
 
   const handleVote = async (type: 'up' | 'down') => {
     if (!post || !user) {
@@ -101,6 +81,13 @@ const PostPage: React.FC = () => {
     setPost(updatedPost);
   };
 
+  const handleScrap = async () => {
+      if (!user || !post) return alert('로그인이 필요합니다.');
+      await storage.toggleScrap(user.id, post.id);
+      setIsScrapped(!isScrapped);
+      refreshUser();
+  };
+
   const handleDelete = async () => {
       if (!post) return;
       if (confirm('정말로 게시글을 삭제하시겠습니까?')) {
@@ -121,6 +108,7 @@ const PostPage: React.FC = () => {
   };
 
   const processContent = (html: string) => {
+    // Process Youtube Links
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
     return html.replace(youtubeRegex, (match, videoId) => {
       return `<div class="aspect-w-16 aspect-h-9 my-4"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen class="w-full h-full rounded shadow-lg" style="min-height: 300px;"></iframe></div>`;
@@ -155,7 +143,6 @@ const PostPage: React.FC = () => {
                     <button onClick={() => handleBlock(post.author_id)} className="flex items-center gap-2 px-3 py-1.5 text-xs w-full text-left hover:bg-gray-100">
                         <Ban size={12} /> 차단하기
                     </button>
-                    {/* Add Send Message Link */}
                     <Link to={`/messages?target=${post.author.username}`} className="flex items-center gap-2 px-3 py-1.5 text-xs w-full text-left hover:bg-gray-100 text-indigo-600 dark:text-indigo-300">
                         <Sparkles size={12} /> 메시지 보내기
                     </Link>
@@ -170,37 +157,15 @@ const PostPage: React.FC = () => {
         </div>
       </div>
       
+      {/* Utility Bar */}
       <div className="flex gap-2 mb-4">
-        <button onClick={() => { setShowSummary(!showSummary); handleSummarize(); }} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full dark:bg-indigo-900/30">
-            <Zap size={14} /> AI 요약
-        </button>
-        <button onClick={() => { setShowFactCheck(!showFactCheck); handleFactCheck(); }} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-green-50 text-green-600 border border-green-100 rounded-full dark:bg-green-900/30">
-            <Search size={14} /> 팩트 체크
-        </button>
+         <button onClick={handleScrap} className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 border rounded-full transition-all ${isScrapped ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}>
+            <Bookmark size={14} fill={isScrapped ? "currentColor" : "none"}/> 스크랩
+         </button>
+         <button className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-gray-50 text-gray-500 border border-gray-200 rounded-full dark:bg-gray-700 dark:text-gray-400">
+            <AlertTriangle size={14}/> 신고
+         </button>
       </div>
-
-      {showSummary && (
-          <div className="mb-4 p-4 bg-indigo-50/50 dark:bg-gray-700/50 rounded-lg border border-indigo-100 dark:border-gray-600 animate-fade-in">
-              <div className="flex items-center gap-2 mb-2">
-                  <Sparkles size={16} className="text-indigo-500" />
-                  <span className="text-sm font-bold">AI 요약 결과</span>
-              </div>
-              <div className="text-sm leading-relaxed">{isSummarizing ? '연산 중...' : summaryText}</div>
-          </div>
-      )}
-
-      {showFactCheck && (
-          <div className="mb-4 p-4 bg-green-50/50 dark:bg-gray-700/50 rounded-lg border border-green-100 dark:border-gray-600 animate-fade-in">
-              <div className="flex items-center gap-2 mb-2">
-                  <Search size={16} className="text-green-600" />
-                  <span className="text-sm font-bold">AI 팩트 체크</span>
-              </div>
-              <div className="text-sm mb-3">{isChecking ? '사실 확인 중...' : factCheckResult?.text}</div>
-              {factCheckResult?.sources?.map((src, i) => (
-                  <a key={i} href={src.uri} target="_blank" className="text-xs text-blue-500 hover:underline block truncate">🔗 {src.title}</a>
-              ))}
-          </div>
-      )}
 
       {post.poll && (
         <div className="bg-gray-50 dark:bg-gray-700/50 p-4 border border-gray-200 dark:border-gray-600 rounded mb-6">
@@ -223,6 +188,7 @@ const PostPage: React.FC = () => {
         </div>
       )}
 
+      {/* Content */}
       <div className="py-6 min-h-[200px] leading-7">
         <div dangerouslySetInnerHTML={{ __html: processContent(post.content) }} />
       </div>

@@ -3,10 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
-import { aiService } from '../services/ai';
 import { WikiPage as WikiPageType } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Edit, Save, Clock, Search, Sparkles, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { BookOpen, Edit, Save, Clock, Search, Link as LinkIcon, ExternalLink, PenTool } from 'lucide-react';
 
 const WikiPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,14 +14,12 @@ const WikiPage: React.FC = () => {
   const [doc, setDoc] = useState<WikiPageType | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
-  const [editExternalUrl, setEditExternalUrl] = useState(''); // New State
+  const [editExternalUrl, setEditExternalUrl] = useState('');
   const [recentDocs, setRecentDocs] = useState<WikiPageType[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
       loadDoc(docSlug);
-      // Fallback for types not matching fully in storage.ts mock return, just filtering logic
       setRecentDocs(storage.getWikiPages().sort((a,b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()).slice(0, 5));
   }, [docSlug]);
 
@@ -57,16 +54,6 @@ const WikiPage: React.FC = () => {
       setDoc(updatedDoc);
       setIsEditing(false);
       setRecentDocs(storage.getWikiPages().sort((a,b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()).slice(0, 5));
-  };
-
-  const handleAutoDraft = async () => {
-      if (!doc) return;
-      if (!confirm('기존 내용이 AI가 생성한 내용으로 대체됩니다. 진행하시겠습니까?')) return;
-      
-      setIsGenerating(true);
-      const draft = await aiService.generateWikiDraft(doc.title);
-      setEditContent(draft);
-      setIsGenerating(false);
   };
 
   return (
@@ -106,15 +93,6 @@ const WikiPage: React.FC = () => {
                              </div>
                         </div>
 
-                        <div className="mb-2 flex justify-end">
-                            <button 
-                                onClick={handleAutoDraft}
-                                disabled={isGenerating}
-                                className="text-xs bg-purple-100 text-purple-600 px-3 py-1.5 rounded-full hover:bg-purple-200 flex items-center gap-1 font-bold"
-                            >
-                                <Sparkles size={12}/> {isGenerating ? 'AI 작성중...' : 'AI 자동 초안 생성'}
-                            </button>
-                        </div>
                         <textarea 
                             className="w-full h-[400px] p-4 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:outline-none focus:border-indigo-500 font-mono text-sm"
                             value={editContent}
@@ -192,6 +170,14 @@ const WikiPage: React.FC = () => {
                          <button onClick={() => setSearchParams({ doc: 'main' })} className="text-xs font-bold text-gray-500 hover:text-gray-800">대문으로 가기</button>
                      </li>
                  </ul>
+                 
+                 <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded border border-indigo-100 dark:border-indigo-800">
+                    <h4 className="text-xs font-bold text-indigo-800 dark:text-indigo-300 mb-2">Wiki Contribution</h4>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-2">지식을 기여하고 포인트를 획득하세요. 집단 지성은 우리 커뮤니티의 힘입니다.</p>
+                    <button onClick={() => setSearchParams({ doc: `new-${Date.now()}` })} className="w-full py-2 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 flex items-center justify-center gap-1">
+                        <PenTool size={12}/> 새 문서 만들기
+                    </button>
+                 </div>
             </div>
         </div>
     </div>

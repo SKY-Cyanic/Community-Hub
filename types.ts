@@ -18,6 +18,13 @@ export interface User {
     badge?: string;
   };
   blocked_users: string[];
+  scrapped_posts: string[]; // Bookmarked post IDs
+  quests: {
+    last_updated: string; // Date string YYYY-MM-DD
+    daily_login: boolean;
+    post_count: number;
+    comment_count: number;
+  };
 }
 
 export interface Profile {
