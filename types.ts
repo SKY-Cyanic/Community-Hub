@@ -2,22 +2,22 @@
 export interface User {
   id: string;
   username: string;
-  password?: string; // Hashed or plain for demo
-  second_password?: string; // For Admin 2FA
+  password?: string;
+  second_password?: string;
   is_admin?: boolean;
-  is_bot?: boolean; // New: Identify AI Agent
+  is_bot?: boolean;
   avatar_url?: string;
   email?: string;
   level: number;
-  exp: number; // Experience points
-  points: number; // Currency
-  inventory: string[]; // Owned Item IDs
+  exp: number;
+  points: number;
+  inventory: string[];
   active_items: {
     name_color?: string;
     name_style?: 'normal' | 'bold';
     badge?: string;
   };
-  blocked_users: string[]; // Blocked User IDs
+  blocked_users: string[];
 }
 
 export interface Profile {
@@ -41,7 +41,7 @@ export interface Board {
   slug: string;
   name: string;
   description?: string;
-  categories?: string[]; // Tab categories like [General, Info, Humor]
+  categories?: string[];
 }
 
 export interface PollOption {
@@ -53,28 +53,29 @@ export interface PollOption {
 export interface Poll {
   question: string;
   options: PollOption[];
-  voted_users: string[]; // User IDs who voted
+  voted_users: string[];
 }
 
 export interface Post {
   id: string;
   board_id: string;
   author_id: string;
-  category?: string; // e.g. "Chat", "Info"
+  category?: string;
   title: string;
-  content: string; // HTML content
+  content: string;
   view_count: number;
   upvotes: number;
   downvotes: number;
-  liked_users: string[]; // User IDs who upvoted to prevent duplicates
+  liked_users: string[];
   created_at: string;
   author: Profile;
   comment_count: number;
   is_hot?: boolean;
   has_image?: boolean;
-  images?: string[]; // Array of base64 strings or URLs
-  ip_addr?: string; // e.g. "123.45.***"
-  poll?: Poll; // Embedded poll
+  images?: string[];
+  ip_addr?: string;
+  poll?: Poll;
+  ai_agent_type?: 'news' | 'reddit' | 'wiki'; // Origin agent
 }
 
 export interface Comment {
@@ -88,13 +89,13 @@ export interface Comment {
   depth: number;
   children?: Comment[];
   ip_addr?: string;
-  is_blinded?: boolean; // New: For CleanBot moderation
+  is_blinded?: boolean;
 }
 
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'comment' | 'reply' | 'level_up';
+  type: 'comment' | 'reply' | 'level_up' | 'ai_info';
   message: string;
   link: string;
   is_read: boolean;
@@ -107,7 +108,7 @@ export interface ShopItem {
   description: string;
   price: number;
   type: 'color' | 'style' | 'badge';
-  value: string; // Hex code or class name
+  value: string;
   icon: string;
 }
 
@@ -117,6 +118,7 @@ export interface WikiPage {
   content: string;
   last_updated: string;
   last_editor: string;
+  sources?: string[];
 }
 
 export interface ChatMessage {
@@ -130,7 +132,7 @@ export interface ChatMessage {
 
 export interface AiLog {
   id: string;
-  action: 'summary' | 'fact_check' | 'moderation' | 'comment' | 'wiki';
+  action: 'summary' | 'fact_check' | 'moderation' | 'comment' | 'wiki' | 'swarm_activity';
   target_id: string;
   detail: string;
   timestamp: string;

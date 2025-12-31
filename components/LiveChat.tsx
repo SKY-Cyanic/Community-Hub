@@ -12,7 +12,6 @@ const LiveChat: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Poll messages
   useEffect(() => {
     if (isOpen) {
         const fetchMessages = () => {
@@ -45,7 +44,6 @@ const LiveChat: React.FC = () => {
 
       storage.sendChatMessage(newMsg);
       setInputText('');
-      // Optimistic update
       setMessages(prev => [...prev, newMsg]);
   };
 
@@ -53,7 +51,8 @@ const LiveChat: React.FC = () => {
       return (
           <button 
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-transform hover:scale-110 z-50"
+            className="fixed bottom-40 right-4 md:bottom-28 md:right-8 bg-indigo-600 text-white p-4 rounded-full shadow-[0_10px_25px_rgba(79,70,229,0.4)] hover:bg-indigo-700 transition-all hover:scale-110 active:scale-90 z-[130]"
+            title="실시간 채팅"
           >
               <MessageCircle size={24} />
           </button>
@@ -61,30 +60,33 @@ const LiveChat: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-80 h-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl flex flex-col z-50 overflow-hidden">
+    <div className="fixed bottom-24 right-4 md:bottom-24 md:right-8 w-[90vw] max-w-[340px] h-[450px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-2xl flex flex-col z-[160] overflow-hidden animate-slide-up">
         {/* Header */}
-        <div className="bg-indigo-600 text-white p-3 flex justify-between items-center">
+        <div className="bg-indigo-600 text-white p-4 flex justify-between items-center shadow-lg">
             <div className="font-bold text-sm flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                실시간 채팅
+                LIVE NEXUS
             </div>
             <div className="flex gap-2">
-                <button onClick={() => setIsOpen(false)}><Minimize2 size={16} /></button>
+                <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1.5 rounded-xl transition-colors"><Minimize2 size={18} /></button>
             </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
+            {messages.length === 0 && (
+                <div className="text-center text-[10px] text-gray-400 mt-20 uppercase tracking-[0.3em] font-mono">Standby for data...</div>
+            )}
             {messages.map(msg => (
                 <div key={msg.id} className={`flex flex-col ${msg.user_id === user?.id ? 'items-end' : 'items-start'}`}>
-                    <div className="flex items-center gap-1 mb-0.5">
-                         <span className="text-[10px] text-gray-500 dark:text-gray-400">{msg.username}</span>
-                         <span className="text-[9px] px-1 bg-gray-200 dark:bg-gray-700 rounded text-gray-500">Lv.{msg.user_level}</span>
+                    <div className="flex items-center gap-1.5 mb-1 px-1">
+                         <span className="text-[10px] font-black text-gray-600 dark:text-gray-400 uppercase">{msg.username}</span>
+                         <span className="text-[9px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded-lg text-gray-500 font-bold">LV.{msg.user_level}</span>
                     </div>
-                    <div className={`max-w-[80%] px-3 py-1.5 rounded-lg text-sm ${
+                    <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm leading-snug ${
                         msg.user_id === user?.id 
-                        ? 'bg-indigo-500 text-white rounded-tr-none' 
-                        : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-tl-none'
+                        ? 'bg-indigo-600 text-white rounded-tr-none' 
+                        : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-600 rounded-tl-none'
                     }`}>
                         {msg.text}
                     </div>
@@ -94,17 +96,17 @@ const LiveChat: React.FC = () => {
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSend} className="p-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex gap-2">
+        <form onSubmit={handleSend} className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 flex gap-2">
             <input 
               type="text" 
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={user ? "메시지 입력..." : "로그인 필요"}
+              placeholder={user ? "연결된 노드에 메시지 전송..." : "로그인 필요"}
               disabled={!user}
-              className="flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              className="flex-1 text-sm border-none bg-gray-100 dark:bg-gray-700 dark:text-white rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
             />
-            <button type="submit" disabled={!user} className="bg-indigo-600 text-white p-1.5 rounded hover:bg-indigo-700 disabled:opacity-50">
-                <Send size={16} />
+            <button type="submit" disabled={!user || !inputText.trim()} className="bg-indigo-600 text-white p-2.5 rounded-2xl hover:bg-indigo-700 disabled:opacity-30 transition-all active:scale-95 shadow-md">
+                <Send size={20} />
             </button>
         </form>
     </div>

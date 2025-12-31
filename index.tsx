@@ -1,4 +1,5 @@
-import React, { ReactNode } from 'react';
+
+import React, { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from './context/ThemeContext';
@@ -12,9 +13,12 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
+// Fix ErrorBoundary component to properly access props and handle generic types
+// Using React.Component explicitly ensures that the TypeScript compiler recognizes state and props properties on the class instance.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Properly initialize state in constructor
     this.state = { hasError: false, error: null };
   }
 
@@ -22,18 +26,20 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
   render() {
-    if (this.state.hasError) {
+    // Access state properly now that the component is correctly typed
+    const { hasError, error } = this.state;
+    if (hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800 p-4">
           <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
           <p className="text-gray-500 mb-4">An unexpected error occurred.</p>
           <pre className="bg-gray-200 p-4 rounded text-xs overflow-auto max-w-full">
-            {this.state.error?.toString()}
+            {error?.toString()}
           </pre>
           <button 
             onClick={() => window.location.reload()} 
@@ -45,6 +51,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
+    // Access props.children with correct typing
     return this.props.children;
   }
 }

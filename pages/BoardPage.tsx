@@ -1,10 +1,12 @@
+
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Post, Board } from '../types';
 import PostList from '../components/PostList';
-import { PenTool, Search } from 'lucide-react';
+import { PenTool, Search, Cpu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { storage } from '../services/storage';
 
 const BoardPage: React.FC = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -16,76 +18,74 @@ const BoardPage: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
-    const fetchData = async () => {
-      const boards = await api.getBoards();
-      const currentBoard = boards.find(b => b.slug === boardId);
-      setBoardInfo(currentBoard || null);
+    const boards = storage.getBoards();
+    const currentBoard = boards.find(b => b.slug === boardId);
+    setBoardInfo(currentBoard || null);
 
-      const boardPosts = await api.getPosts(boardId);
-      setPosts(boardPosts);
-      setLoading(false);
-    };
-    fetchData();
+    // Real-time Firestore Sync
+    const unsubscribe = storage.subscribePosts((allPosts) => {
+        const filtered = boardId === 'all' 
+            ? allPosts 
+            : allPosts.filter(p => p.board_id === boardId);
+        setPosts(filtered);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [boardId]);
 
   const handleWriteClick = () => {
     if (!user) {
-      alert('로그인 후 이용 가능합니다.');
+      alert('로그인이 필요한 서비스입니다.');
       return;
     }
     navigate('/write');
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">로딩중...</div>;
+  if (loading) return (
+      <div className="p-20 text-center">
+          <Cpu className="animate-spin inline-block text-cyan-500 mb-4" size={40} />
+          <div className="text-cyan-600 font-ai text-xs tracking-widest">LOADING NEURAL NETWORK...</div>
+      </div>
+  );
+  
   if (!boardInfo) return <div className="p-8 text-center text-red-500">게시판을 찾을 수 없습니다.</div>;
 
   return (
-    <div>
-      <div className="mb-4 p-4 bg-white border border-gray-200 rounded-sm shadow-sm">
-        <h1 className="text-xl font-black text-gray-800 mb-1">{boardInfo.name}</h1>
-        <p className="text-sm text-gray-500">{boardInfo.description}</p>
+    <div className="animate-fade-in">
+      <div className="mb-4 p-5 bg-white dark:bg-gray-850 border border-gray-200 dark:border-cyan-900/30 rounded-sm shadow-sm transition-all">
+        <h1 className="text-2xl font-black text-gray-800 dark:text-cyan-400 mb-1 flex items-center gap-2">
+            {boardInfo.name}
+            {boardId === 'stock' && <span className="text-[10px] bg-cyan-500 text-black px-1.5 py-0.5 rounded font-ai">LIVE AI</span>}
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{boardInfo.description}</p>
       </div>
 
-      <div className="flex justify-between items-center mb-2">
-        <div className="text-xs text-gray-500">
-           총 <span className="text-indigo-600 font-bold">{posts.length}</span>개의 글
+      <div className="flex justify-between items-center mb-3">
+        <div className="text-xs font-mono text-gray-500 uppercase tracking-tighter">
+           INDEXED: <span className="text-indigo-600 dark:text-cyan-400 font-bold">{posts.length}</span> NODES
         </div>
         <button 
           onClick={handleWriteClick}
-          className="flex items-center gap-1 bg-indigo-600 text-white text-sm font-bold px-3 py-1.5 rounded hover:bg-indigo-700"
+          className="flex items-center gap-2 bg-indigo-600 dark:bg-cyan-600 text-white dark:text-black text-sm font-bold px-4 py-2 rounded-sm hover:opacity-80 transition-all shadow-lg"
         >
-          <PenTool size={14} /> 글쓰기
+          <PenTool size={16} /> 신규 글 작성
         </button>
       </div>
 
-      <div className="shadow-sm">
+      <div className="shadow-sm border border-gray-100 dark:border-cyan-900/20 rounded-sm overflow-hidden">
         <PostList posts={posts} boardSlug={boardId!} />
       </div>
 
-      {/* Pagination */}
-      <div className="flex justify-center mt-6 space-x-1">
-        <button className="px-3 py-1 border border-gray-300 bg-white text-gray-500 rounded-l hover:bg-gray-50 text-sm">Previous</button>
-        <button className="px-3 py-1 border border-indigo-500 bg-indigo-50 text-indigo-700 font-bold text-sm">1</button>
-        <button className="px-3 py-1 border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 text-sm">2</button>
-        <button className="px-3 py-1 border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 text-sm">3</button>
-        <button className="px-3 py-1 border border-gray-300 bg-white text-gray-500 rounded-r hover:bg-gray-50 text-sm">Next</button>
-      </div>
-
-      {/* Search Bar */}
-      <div className="mt-8 bg-gray-100 p-4 rounded flex justify-center">
+      <div className="mt-8 bg-gray-100 dark:bg-gray-800/50 p-4 rounded-sm flex justify-center border border-dashed border-gray-300 dark:border-gray-700">
          <div className="flex space-x-2 w-full max-w-md">
-            <select className="border border-gray-300 text-sm p-2 rounded focus:outline-none">
-              <option>제목+내용</option>
-              <option>제목</option>
-              <option>글쓴이</option>
-            </select>
             <input 
               type="text" 
-              placeholder="검색어를 입력하세요" 
-              className="flex-grow border border-gray-300 p-2 text-sm rounded focus:outline-none focus:border-indigo-500"
+              placeholder="제목, 내용, 글쓴이 검색..." 
+              className="flex-grow border border-gray-300 dark:border-gray-600 p-2 text-sm rounded-sm focus:outline-none focus:border-cyan-500 dark:bg-gray-950 dark:text-cyan-400"
             />
-            <button className="bg-gray-700 text-white px-4 rounded text-sm font-bold hover:bg-gray-600">
-               검색
+            <button className="bg-gray-700 dark:bg-cyan-900 text-white dark:text-cyan-400 px-5 rounded-sm text-sm font-bold hover:bg-gray-600">
+               SEARCH
             </button>
          </div>
       </div>
