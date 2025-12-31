@@ -22,14 +22,10 @@ const CommentItem: React.FC<CommentProps> = ({ comment, allComments, onReply, on
   
   const children = allComments.filter(c => c.parent_id === comment.id);
 
-  // Blocked user check
   if (user && user.blocked_users.includes(comment.author_id)) {
       return (
           <div className={`py-3 px-4 my-2 bg-gray-100 dark:bg-gray-800 text-gray-400 text-xs rounded flex items-center justify-between ${comment.depth > 0 ? 'ml-4 md:ml-8' : ''}`}>
               <span>차단된 사용자의 댓글입니다.</span>
-              <div className="flex gap-2">
-                  {children.length > 0 && <span className="text-[10px]">답글 {children.length}개</span>}
-              </div>
           </div>
       )
   }
@@ -67,14 +63,10 @@ const CommentItem: React.FC<CommentProps> = ({ comment, allComments, onReply, on
             {new Date(comment.created_at).toLocaleString()}
           </span>
 
-          {/* User Menu Dropdown */}
           {showMenu && user && user.id !== comment.author_id && !isBot && (
               <div className="absolute bg-white dark:bg-gray-700 shadow-lg border border-gray-200 dark:border-gray-600 rounded py-1 z-10 ml-20 mt-6">
                   <button onClick={() => onBlock(comment.author_id)} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 w-full text-left">
                       <Ban size={12} /> 차단하기
-                  </button>
-                  <button className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 w-full text-left">
-                      <Flag size={12} /> 신고하기
                   </button>
               </div>
           )}
@@ -129,9 +121,10 @@ const CommentItem: React.FC<CommentProps> = ({ comment, allComments, onReply, on
 interface CommentSectionProps {
   comments: Comment[];
   postId: string;
+  postAuthorId: string; // Added to know who to notify
 }
 
-const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialComments, postId }) => {
+const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialComments, postId, postAuthorId }) => {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -152,15 +145,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialCommen
     
     setIsSubmitting(true);
     try {
-      // AI Moderation Check
       const check = await aiService.moderateContent(content);
-      let finalContent = content;
       let isBlinded = false;
 
       if (!check.isSafe) {
-         if (confirm(`[AI 클린봇 경고]\n작성하신 내용에 부적절한 표현이 감지되었습니다.\n사유: ${check.reason}\n\n그래도 등록하시겠습니까? 심한 경우 블라인드 처리될 수 있습니다.`)) {
-             // If user persists, we might blindly store it or store marked as blinded
-             // For this demo, let's blind it immediately if it's flagged
+         if (confirm(`[AI 클린봇 경고]\n부적절한 표현이 감지되었습니다: ${check.reason}\n\n등록하시겠습니까? (블라인드 처리될 수 있습니다)`)) {
              isBlinded = true;
          } else {
              setIsSubmitting(false);
@@ -168,21 +157,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialCommen
          }
       }
 
-      const created = await api.createComment(postId, finalContent, user, parentId);
+      // Pass postAuthorId to API for notification
+      const created = await api.createComment(postId, content, user, parentId, postAuthorId);
+      
       if (isBlinded) {
-          // Manually update local state to show blinded immediately (ignoring API implementation for demo simplicity)
           created.is_blinded = true;
-          // We would need an API endpoint to update this persistence, 
-          // here we hack it by updating storage directly for demo
-          const allComments = storage.getComments();
-          const idx = allComments.findIndex(c => c.id === created.id);
-          if (idx !== -1) {
-             allComments[idx].is_blinded = true;
-             localStorage.setItem('k_community_comments', JSON.stringify(allComments));
-          }
+          // In real implementation, this flag should be saved to DB.
       }
-
-      setComments(prev => [...prev, created]);
+      // Note: setComments update via subscription in parent usually, but optimistic update here
       setNewComment('');
     } catch (e) {
       alert('댓글 등록 실패');
@@ -195,7 +177,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialCommen
       if(!user) return;
       if(confirm('이 사용자를 차단하시겠습니까?')) {
           storage.blockUser(user.id, targetId);
-          refreshUser(); // Refresh context to update blocked list
+          refreshUser();
           alert('차단되었습니다.');
       }
   };

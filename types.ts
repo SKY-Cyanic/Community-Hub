@@ -75,7 +75,7 @@ export interface Post {
   images?: string[];
   ip_addr?: string;
   poll?: Poll;
-  ai_agent_type?: 'news' | 'reddit' | 'wiki'; // Origin agent
+  ai_agent_type?: 'news' | 'reddit' | 'wiki';
 }
 
 export interface Comment {
@@ -94,12 +94,36 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  user_id: string;
-  type: 'comment' | 'reply' | 'level_up' | 'ai_info';
+  user_id: string; // 수신자
+  type: 'comment' | 'reply' | 'level_up' | 'system' | 'message';
   message: string;
-  link: string;
+  link: string; // 클릭 시 이동할 경로
   is_read: boolean;
   created_at: string;
+  from_user?: {
+    username: string;
+    avatar_url?: string;
+  };
+}
+
+// 1:1 대화방 메타데이터
+export interface Conversation {
+  id: string;
+  participants: string[]; // [userId1, userId2]
+  last_message: string;
+  last_message_at: string;
+  updated_at: string;
+  unread_counts: { [userId: string]: number };
+}
+
+// 개별 메시지
+export interface PrivateMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  is_read: boolean;
 }
 
 export interface ShopItem {
@@ -119,6 +143,8 @@ export interface WikiPage {
   last_updated: string;
   last_editor: string;
   sources?: string[];
+  external_url?: string; // 외부 사이트 연결용
+  is_external?: boolean;
 }
 
 export interface ChatMessage {

@@ -11,6 +11,7 @@ import MyPage from './pages/MyPage';
 import ShopPage from './pages/ShopPage';
 import WikiPage from './pages/WikiPage';
 import AdminPage from './pages/AdminPage';
+import MessagesPage from './pages/MessagesPage';
 import { TermsPage, PrivacyPage, YouthPolicyPage } from './pages/PolicyPages';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
             <Route path="mypage" element={<MyPage />} />
             <Route path="shop" element={<ShopPage />} />
             <Route path="wiki" element={<WikiPage />} />
+            <Route path="messages" element={<MessagesPage />} />
             <Route path="admin" element={<AdminPage />} />
             <Route path="terms" element={<TermsPage />} />
             <Route path="privacy" element={<PrivacyPage />} />

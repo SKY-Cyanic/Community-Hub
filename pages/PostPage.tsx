@@ -32,7 +32,6 @@ const PostPage: React.FC = () => {
         const postData = await api.getPost(postId);
         setPost(postData);
         
-        // Firestore Comment Subscription
         const unsubscribe = storage.subscribeComments(postId, (updatedComments) => {
           setComments(updatedComments);
         });
@@ -156,6 +155,10 @@ const PostPage: React.FC = () => {
                     <button onClick={() => handleBlock(post.author_id)} className="flex items-center gap-2 px-3 py-1.5 text-xs w-full text-left hover:bg-gray-100">
                         <Ban size={12} /> 차단하기
                     </button>
+                    {/* Add Send Message Link */}
+                    <Link to={`/messages?target=${post.author.username}`} className="flex items-center gap-2 px-3 py-1.5 text-xs w-full text-left hover:bg-gray-100 text-indigo-600 dark:text-indigo-300">
+                        <Sparkles size={12} /> 메시지 보내기
+                    </Link>
                 </div>
             )}
             <span><Clock size={12} className="inline mr-1"/>{new Date(post.created_at).toLocaleString()}</span>
@@ -243,7 +246,7 @@ const PostPage: React.FC = () => {
          <Link to={`/board/${boardId}`} className="bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded text-sm font-bold">목록으로</Link>
       </div>
 
-      <CommentSection comments={comments} postId={post.id} />
+      <CommentSection comments={comments} postId={post.id} postAuthorId={post.author_id} />
     </div>
   );
 };

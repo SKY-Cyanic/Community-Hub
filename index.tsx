@@ -1,4 +1,3 @@
-
 import React, { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -16,6 +15,9 @@ interface ErrorBoundaryState {
 // Fix ErrorBoundary component to properly access props and handle generic types
 // Using React.Component explicitly ensures that the TypeScript compiler recognizes state and props properties on the class instance.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicitly declare state to satisfy type checking
+  public state: ErrorBoundaryState = { hasError: false, error: null };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
     // Properly initialize state in constructor

@@ -1,17 +1,72 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Board, User } from '../types';
+import { Board, User, Notification } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { 
   Menu, User as UserIcon, LogOut, PenTool, Moon, Sun, 
-  BookOpen, X, Cpu, Sparkles, LogIn, Home, ShoppingBag, 
-  ChevronRight, Settings, Bell
+  BookOpen, Cpu, Sparkles, Home, ShoppingBag, 
+  ChevronRight, Bell, MessageSquare
 } from 'lucide-react';
 import { storage } from '../services/storage';
 import LiveChat from './LiveChat';
 import VoiceNeuralLink from './VoiceNeuralLink';
+
+const NotificationDropdown: React.FC<{ userId: string, close: () => void }> = ({ userId, close }) => {
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    
+    useEffect(() => {
+        const unsub = storage.subscribeNotifications(userId, setNotifications);
+        return () => unsub();
+    }, [userId]);
+
+    const handleRead = async (id: string, link: string) => {
+        await storage.markNotificationAsRead(id);
+        close();
+        // Link navigation happens automatically by parent Link component, 
+        // but we ensure status update
+    };
+
+    const handleReadAll = async () => {
+        await storage.markAllNotificationsAsRead(userId);
+    };
+
+    return (
+        <div className="absolute right-0 top-12 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-[150] overflow-hidden animate-fade-in">
+            <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-900 dark:text-white">알림 센터</span>
+                <button onClick={handleReadAll} className="text-[10px] text-indigo-500 hover:underline">모두 읽음</button>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-gray-400">새로운 알림이 없습니다.</div>
+                ) : (
+                    notifications.map(notif => (
+                        <Link 
+                           to={notif.link} 
+                           key={notif.id}
+                           onClick={() => handleRead(notif.id, notif.link)}
+                           className={`block p-3 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${notif.is_read ? 'opacity-60' : 'bg-indigo-50/30 dark:bg-indigo-900/10'}`}
+                        >
+                            <div className="flex gap-3">
+                                <div className="mt-1 min-w-[30px]">
+                                    {notif.type === 'comment' && <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs">💬</div>}
+                                    {notif.type === 'message' && <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs">✉️</div>}
+                                    {notif.type === 'system' && <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xs">🔔</div>}
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-800 dark:text-gray-200 leading-snug">{notif.message}</p>
+                                    <span className="text-[10px] text-gray-400 block mt-1">{new Date(notif.created_at).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </Link>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+};
 
 const UserSection: React.FC<any> = ({ 
     user, isLoading, logout, login, register,
@@ -63,6 +118,9 @@ const UserSection: React.FC<any> = ({
               <LogOut size={14} /> 로그아웃
             </button>
           </div>
+          <Link to="/messages" className="block text-center text-xs py-2 bg-gray-50 dark:bg-gray-900 rounded-lg text-gray-500 hover:bg-gray-100">
+             1:1 메시지함
+          </Link>
         </div>
       ) : (
         <div className="space-y-4">
@@ -116,6 +174,8 @@ const Layout: React.FC = () => {
   const { isDarkMode, isAiHubMode, toggleTheme, toggleAiHubMode } = useTheme();
   const [boards, setBoards] = useState<Board[]>([]);
   const [isMobileUserOpen, setIsMobileUserOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -124,7 +184,16 @@ const Layout: React.FC = () => {
   }, []);
 
   useEffect(() => {
+      if (!user) return;
+      const unsub = storage.subscribeNotifications(user.id, (notifs) => {
+          setUnreadCount(notifs.filter(n => !n.is_read).length);
+      });
+      return () => unsub();
+  }, [user]);
+
+  useEffect(() => {
     setIsMobileUserOpen(false);
+    setIsNotifOpen(false);
   }, [location]);
 
   const navItems = [
@@ -147,20 +216,29 @@ const Layout: React.FC = () => {
               <Cpu className="text-white" size={20} />
             </div>
             <span className={`text-lg font-black tracking-tighter ${isAiHubMode ? 'font-ai text-cyan-400' : 'text-gray-900 dark:text-white'}`}>
-              AI-HUB <span className="text-xs font-normal opacity-50 ml-1">v2.1</span>
+              AI-HUB <span className="text-xs font-normal opacity-50 ml-1">v2.5</span>
             </span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
              <button onClick={toggleAiHubMode} title="AI Hub Mode" className={`p-2 rounded-full transition-all ${isAiHubMode ? 'text-cyan-400 bg-cyan-400/10' : 'text-gray-400 hover:bg-gray-100'}`}>
                <Sparkles size={18} />
              </button>
              <button onClick={toggleTheme} title="Toggle Theme" className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
              </button>
-             <button className="p-2 text-gray-400 md:hidden">
+             
+             {/* Notification Bell */}
+             <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)} 
+                className="p-2 text-gray-400 hover:text-indigo-600 relative"
+             >
                <Bell size={18} />
+               {unreadCount > 0 && (
+                   <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
+               )}
              </button>
+             {isNotifOpen && user && <NotificationDropdown userId={user.id} close={() => setIsNotifOpen(false)} />}
           </div>
         </div>
       </header>
@@ -238,7 +316,6 @@ const Layout: React.FC = () => {
         ))}
       </nav>
 
-      {/* Floating Buttons shifted higher to avoid blocking nav */}
       <LiveChat />
       <VoiceNeuralLink />
     </div>
