@@ -66,29 +66,6 @@ const NotificationDropdown: React.FC<{ userId: string, close: () => void }> = ({
     );
 };
 
-const TrendTicker: React.FC = () => {
-    const trends = ["#React19", "#CyberDeck", "#KOSPI", "#Ethereum", "#NodeProtocol", "#IndieDev", "#SeoulWeather", "#GameJam"];
-    return (
-        <div className="bg-black text-cyan-400 h-8 overflow-hidden flex items-center relative border-b border-gray-800">
-            <div className="px-3 bg-black z-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border-r border-gray-800 h-full">
-                <Zap size={10} className="text-yellow-400 animate-pulse"/> LIVE TREND
-            </div>
-            <div className="whitespace-nowrap animate-marquee flex gap-8 items-center px-4">
-                {trends.map((t, i) => (
-                    <span key={i} className="text-xs font-mono opacity-80 hover:opacity-100 cursor-pointer hover:text-white transition-colors">
-                        {t} <span className="text-[9px] text-gray-500">▲ {Math.floor(Math.random()*100)}%</span>
-                    </span>
-                ))}
-                {trends.map((t, i) => (
-                    <span key={`dup-${i}`} className="text-xs font-mono opacity-80 hover:opacity-100 cursor-pointer hover:text-white transition-colors">
-                        {t} <span className="text-[9px] text-gray-500">▲ {Math.floor(Math.random()*100)}%</span>
-                    </span>
-                ))}
-            </div>
-        </div>
-    );
-};
-
 const UserSection: React.FC<any> = ({ 
     user, isLoading, logout, login, register,
     isAiHubMode
@@ -281,8 +258,6 @@ const Layout: React.FC = () => {
              {isNotifOpen && user && <NotificationDropdown userId={user.id} close={() => setIsNotifOpen(false)} />}
           </div>
         </div>
-        {/* Trend Ticker Component */}
-        <TrendTicker />
       </header>
 
       {/* Main Content */}
