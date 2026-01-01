@@ -116,7 +116,7 @@ export const api = {
   },
   
   deleteUser: async (userId: string): Promise<void> => {
-      storage.deleteUser(userId);
+      await storage.deleteUser(userId);
   },
 
   getWikiPage: async (slug: string): Promise<WikiPage | undefined> => {

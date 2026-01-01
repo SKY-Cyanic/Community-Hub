@@ -173,10 +173,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({ comments: initialCommen
     }
   };
 
-  const handleBlock = (targetId: string) => {
+  const handleBlock = async (targetId: string) => {
       if(!user) return;
       if(confirm('이 사용자를 차단하시겠습니까?')) {
-          storage.blockUser(user.id, targetId);
+          await storage.blockUser(user.id, targetId);
           refreshUser();
           alert('차단되었습니다.');
       }

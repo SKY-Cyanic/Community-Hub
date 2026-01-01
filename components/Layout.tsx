@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 import { 
   Menu, User as UserIcon, LogOut, PenTool, Moon, Sun, 
   BookOpen, Cpu, Sparkles, Home, ShoppingBag, 
-  ChevronRight, Bell, Zap
+  ChevronRight, Bell, Zap, Lock
 } from 'lucide-react';
 import { storage } from '../services/storage';
 import LiveChat from './LiveChat';
@@ -51,6 +51,7 @@ const NotificationDropdown: React.FC<{ userId: string, close: () => void }> = ({
                                 <div className="mt-1 min-w-[30px]">
                                     {notif.type === 'comment' && <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs">💬</div>}
                                     {notif.type === 'message' && <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs">✉️</div>}
+                                    {notif.type === 'achievement' && <div className="w-8 h-8 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-xs">🏆</div>}
                                     {notif.type === 'system' && <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xs">🔔</div>}
                                 </div>
                                 <div>
@@ -88,7 +89,7 @@ const UserSection: React.FC<any> = ({
     }
   };
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse text-xs font-ai">SYNCING NEURAL DATA...</div>;
+  if (isLoading) return <div className="p-8 text-center animate-pulse text-xs font-ai text-gray-400">SYNCING NEURAL DATA...</div>;
 
   return (
     <div className={`${cardClass} p-5 rounded-2xl shadow-xl transition-all`}>
@@ -109,7 +110,6 @@ const UserSection: React.FC<any> = ({
             </div>
           </div>
           
-          {/* Quest Mini Tracker */}
           {user.quests && (
               <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg text-xs space-y-1 border border-gray-100 dark:border-gray-700">
                   <div className="font-bold text-[10px] text-gray-400 uppercase flex justify-between">
@@ -121,8 +121,8 @@ const UserSection: React.FC<any> = ({
                       <span>Login</span>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                      <div className={`w-2 h-2 rounded-full ${user.quests.post_count > 0 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                      <span>Write Post</span>
+                      <div className={`w-2 h-2 rounded-full ${user.quests.comment_count >= 50 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span>Agent Training ({user.quests.comment_count}/50)</span>
                   </div>
               </div>
           )}
@@ -177,9 +177,6 @@ const UserSection: React.FC<any> = ({
               {isRegisterMode ? '가입 시작하기' : '보안 접속'}
             </button>
           </form>
-          <p className="text-[10px] text-center text-gray-400 leading-relaxed uppercase tracking-tighter">
-            {isRegisterMode ? '가입 시 커뮤니티 가이드라인에 동의하게 됩니다.' : '분실 시 관리자에게 문의하세요.'}
-          </p>
         </div>
       )}
     </div>
@@ -225,7 +222,6 @@ const Layout: React.FC = () => {
     <div className={`min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'dark bg-gray-950' : 'bg-gray-50'}`}>
       {isAiHubMode && <div className="fixed inset-0 pointer-events-none scan-line z-[100] opacity-5"></div>}
       
-      {/* Header */}
       <header className="sticky top-0 z-[110] bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 transition-all">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -244,8 +240,6 @@ const Layout: React.FC = () => {
              <button onClick={toggleTheme} title="Toggle Theme" className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
              </button>
-             
-             {/* Notification Bell */}
              <button 
                 onClick={() => setIsNotifOpen(!isNotifOpen)} 
                 className="p-2 text-gray-400 hover:text-indigo-600 relative"
@@ -260,7 +254,6 @@ const Layout: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 md:grid-cols-4 gap-6">
         <aside className="hidden md:block space-y-4">
           <UserSection 
@@ -270,12 +263,23 @@ const Layout: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 shadow-sm">
              <h3 className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Quick Access</h3>
              <nav className="space-y-1">
-                {boards.map(b => (
-                   <Link key={b.id} to={`/board/${b.slug}`} className="flex items-center justify-between p-2 text-sm font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg group">
-                      {b.name}
-                      <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"/>
-                   </Link>
-                ))}
+                {boards.map(b => {
+                   const isLocked = b.required_achievement && !user?.achievements.includes(b.required_achievement);
+                   return (
+                       <Link 
+                         key={b.id} 
+                         to={isLocked ? '#' : `/board/${b.slug}`} 
+                         className={`flex items-center justify-between p-2 text-sm font-bold rounded-lg group transition-all ${isLocked ? 'opacity-40 cursor-not-allowed text-gray-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                         onClick={(e) => { if(isLocked) { e.preventDefault(); alert('접근 불가: 정보 요원 업적이 필요합니다.'); } }}
+                       >
+                          <span className="flex items-center gap-2">
+                             {isLocked ? <Lock size={12}/> : null}
+                             {b.name}
+                          </span>
+                          {!isLocked && <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"/>}
+                       </Link>
+                   )
+                })}
              </nav>
           </div>
         </aside>
@@ -285,40 +289,7 @@ const Layout: React.FC = () => {
         </div>
       </main>
 
-      {/* Mobile Drawer */}
-      {isMobileUserOpen && (
-        <div className="fixed inset-0 z-[150] md:hidden flex items-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsMobileUserOpen(false)}></div>
-          <div className="relative w-full bg-gray-50 dark:bg-gray-900 rounded-t-3xl p-6 shadow-2xl animate-slide-up">
-            <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6"></div>
-            <UserSection 
-              user={user} isLoading={isLoading} logout={logout} login={login} register={register}
-              isAiHubMode={isAiHubMode}
-            />
-            {user && (
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                 <Link to="/mypage" onClick={() => setIsMobileUserOpen(false)} className="flex items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                    <UserIcon size={18} className="text-indigo-500"/>
-                    <span className="text-xs font-bold dark:text-white">마이페이지</span>
-                 </Link>
-                 <button onClick={() => { setIsMobileUserOpen(false); toggleTheme(); }} className="flex items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                    {isDarkMode ? <Sun size={18} className="text-yellow-500"/> : <Moon size={18} className="text-indigo-500"/>}
-                    <span className="text-xs font-bold dark:text-white">테마 변경</span>
-                 </button>
-              </div>
-            )}
-            <button 
-              onClick={() => setIsMobileUserOpen(false)}
-              className="mt-6 w-full py-3 text-sm font-bold text-gray-400"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 h-16 flex items-center justify-around z-[140] px-2 pb-safe shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 h-16 flex items-center justify-around z-[140] px-2 pb-safe">
         {navItems.map((item, idx) => (
           <button 
             key={idx}

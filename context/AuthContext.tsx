@@ -18,25 +18,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [tempAdminUser, setTempAdminUser] = useState<User | null>(null); // For 2FA step
+  const [tempAdminUser, setTempAdminUser] = useState<User | null>(null);
 
   const refreshUser = () => {
     const sessionUser = storage.getSession();
     if (sessionUser) {
-      // Re-sync with the 'users' list to get latest point/exp updates
       const latestUser = storage.getUser(sessionUser.username);
-      // If user was deleted remotely
       if (!latestUser) {
           logout();
           return;
       }
       setUser(latestUser);
-      // Update session storage if data changed
-      if (JSON.stringify(sessionUser) !== JSON.stringify(latestUser)) {
-          // Do not call storage.setSession here to avoid infinite loop with listeners
-          // Just update local state
-          localStorage.setItem('k_community_session', JSON.stringify(latestUser));
-      }
+      localStorage.setItem('ai_hub_session_v4', JSON.stringify(latestUser));
     } else {
         setUser(null);
     }
@@ -45,53 +38,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     refreshUser();
     setIsLoading(false);
-
-    // Subscribe to cross-tab updates
     const handleSync = (event: MessageEvent) => {
         if (event.data.type === 'SESSION_UPDATE' || event.data.type === 'USER_UPDATE') {
             refreshUser();
         }
     };
     storage.channel.onmessage = handleSync;
-
-    return () => {
-        storage.channel.onmessage = null;
-    };
+    return () => { storage.channel.onmessage = null; };
   }, []);
 
   const login = (username: string, password?: string) => {
     const targetUser = storage.getUser(username);
-
-    if (!targetUser) {
-        return { success: false, message: '존재하지 않는 사용자입니다.' };
-    }
-
-    // Verify Password
-    if (targetUser.password && targetUser.password !== password) {
-        return { success: false, message: '비밀번호가 일치하지 않습니다.' };
-    }
-
-    // Admin 2FA Check
+    if (!targetUser) return { success: false, message: '존재하지 않는 사용자입니다.' };
+    if (targetUser.password && targetUser.password !== password) return { success: false, message: '비밀번호 불일치' };
+    
     if (targetUser.is_admin) {
         setTempAdminUser(targetUser);
-        return { success: true, message: '2차 인증이 필요합니다.', requires2FA: true };
+        return { success: true, message: '2차 인증 필요', requires2FA: true };
     }
 
-    // Handle Daily Login Quest logic
-    const today = new Date().toISOString().split('T')[0];
-    if (!targetUser.quests || targetUser.quests.last_updated !== today) {
-         targetUser.quests = {
-             last_updated: today,
-             daily_login: true,
-             post_count: 0,
-             comment_count: 0
-         };
-         targetUser.points += 10; // Login Reward
-         storage.saveUser(targetUser);
-         storage.sendNotification({
-             user_id: targetUser.id, type: 'system', message: '일일 프로토콜: 접속 완료 (+10P)', link: '/mypage'
-         });
-    }
+    // Process Attendance
+    storage.processAttendance(targetUser.id);
 
     setUser(targetUser);
     storage.setSession(targetUser);
@@ -102,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (tempAdminUser && tempAdminUser.second_password === code) {
           setUser(tempAdminUser);
           storage.setSession(tempAdminUser);
+          storage.processAttendance(tempAdminUser.id);
           setTempAdminUser(null);
           return true;
       }
@@ -110,49 +78,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (username: string, password: string, secondPassword?: string) => {
       const existing = storage.getUser(username);
-      if (existing) {
-          return { success: false, message: '이미 존재하는 아이디입니다.' };
-      }
+      if (existing) return { success: false, message: '아이디 중복' };
 
       const isAdmin = username.toLowerCase() === 'admin';
-      const today = new Date().toISOString().split('T')[0];
-      
       const newUser: User = {
           id: `user-${Date.now()}`,
-          username: username,
-          password: password,
+          username: username, password,
           second_password: isAdmin ? secondPassword : undefined,
-          is_admin: isAdmin,
-          level: 1,
-          email: `${username}@example.com`,
-          avatar_url: '',
-          exp: 0,
-          points: 100, // Welcome points
-          inventory: [],
-          active_items: isAdmin ? { name_color: '#FF0000', name_style: 'bold', badge: '👑' } : {},
-          blocked_users: [],
-          scrapped_posts: [],
-          quests: {
-              last_updated: today,
-              daily_login: true,
-              post_count: 0,
-              comment_count: 0
-          }
+          is_admin: isAdmin, level: 1, email: `${username}@aihub.io`, avatar_url: '',
+          exp: 0, points: 500, inventory: [],
+          active_items: isAdmin ? { name_color: '#FF0000', name_style: 'bold', badge: '👑' } : { theme: 'standard' },
+          blocked_users: [], scrapped_posts: [], achievements: [], attendance_streak: 1,
+          last_attendance_date: new Date().toISOString().split('T')[0],
+          quests: { last_updated: new Date().toISOString().split('T')[0], daily_login: true, post_count: 0, comment_count: 0, balance_voted: false }
       };
 
-      storage.saveUser(newUser);
-      // Auto login after register
+      await storage.saveUser(newUser);
       setUser(newUser);
       storage.setSession(newUser);
-      
-      return { success: true, message: '회원가입 성공' };
+      return { success: true, message: '환영합니다!' };
   };
 
-  const logout = () => {
-    setUser(null);
-    storage.setSession(null);
-    setTempAdminUser(null);
-  };
+  const logout = () => { setUser(null); storage.setSession(null); setTempAdminUser(null); };
 
   return (
     <AuthContext.Provider value={{ user, login, verify2FA, register, logout, isLoading, refreshUser }}>
@@ -163,8 +110,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth error');
   return context;
 };

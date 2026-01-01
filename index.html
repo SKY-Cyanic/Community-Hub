@@ -33,31 +33,39 @@
     <style>
       body {
         font-family: 'Noto Sans KR', sans-serif;
+        transition: background-color 0.3s, color 0.3s;
       }
       .font-ai {
         font-family: 'Orbitron', sans-serif;
       }
-      .ai-hub-mode {
-        background: #0d1117;
-        color: #e6edf3;
+      
+      /* Theme: Cyberpunk */
+      .theme-cyberpunk {
+        --tw-bg-opacity: 1;
+        background-color: #0b0114 !important;
       }
-      .ai-hub-card {
-        background: rgba(22, 27, 34, 0.8);
-        border: 1px solid rgba(0, 243, 255, 0.2);
-        box-shadow: 0 0 15px rgba(0, 243, 255, 0.05);
+      .theme-cyberpunk .bg-indigo-600 { background-color: #ff00ff !important; }
+      .theme-cyberpunk .text-indigo-600 { color: #ff00ff !important; }
+      .theme-cyberpunk .border-cyan-500 { border-color: #00ffff !important; }
+      
+      /* Theme: Retro */
+      .theme-retro {
+        background-color: #1a1c18 !important;
       }
-      .neon-border {
-        border: 1px solid #00f3ff;
-        box-shadow: 0 0 5px #00f3ff;
+      .theme-retro * {
+        color: #33ff33 !important;
+        font-family: 'Courier New', Courier, monospace !important;
       }
-      @keyframes scan {
-        0% { background-position: 0 -100vh; }
-        100% { background-position: 0 100vh; }
-      }
+      .theme-retro .bg-indigo-600 { background-color: #1a1c18 !important; border: 1px solid #33ff33 !important; }
+
       .scan-line {
         background: linear-gradient(to bottom, transparent, rgba(0, 243, 255, 0.1), transparent);
         background-size: 100% 200vh;
         animation: scan 4s linear infinite;
+      }
+      @keyframes scan {
+        0% { background-position: 0 -100vh; }
+        100% { background-position: 0 100vh; }
       }
     </style>
     <script type="importmap">

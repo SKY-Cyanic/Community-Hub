@@ -1,3 +1,4 @@
+
 import React, { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -12,10 +13,19 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
+// Fix: Explicitly declare the state property and extend React.Component to ensure 'this.state' and 'this.props' are correctly typed
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicitly defining the props and state property on the class fixes "does not exist on type" errors in some TS environments
+  public props: ErrorBoundaryProps;
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null,
+  };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    // Explicitly set props to satisfy strict compiler checks in some environments
+    this.props = props;
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {

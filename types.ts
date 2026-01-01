@@ -16,31 +16,38 @@ export interface User {
     name_color?: string;
     name_style?: 'normal' | 'bold';
     badge?: string;
+    theme?: string; // 'standard' | 'cyberpunk' | 'retro' | 'midnight'
   };
   blocked_users: string[];
-  scrapped_posts: string[]; // Bookmarked post IDs
+  scrapped_posts: string[];
+  achievements: string[]; // 해금된 업적 ID
+  attendance_streak: number;
+  last_attendance_date: string;
   quests: {
-    last_updated: string; // Date string YYYY-MM-DD
+    last_updated: string;
     daily_login: boolean;
     post_count: number;
     comment_count: number;
+    balance_voted: boolean;
   };
 }
 
-export interface Profile {
+export interface Achievement {
   id: string;
-  username: string;
-  avatar_url?: string;
+  name: string;
+  description: string;
+  icon: string;
+  condition: string;
+  reward_points: number;
+}
+
+export interface FactCheckReport {
+  id: string;
+  post_id: string;
+  reporter_id: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
   created_at: string;
-  level: number;
-  exp?: number;
-  active_items?: {
-    name_color?: string;
-    name_style?: 'normal' | 'bold';
-    badge?: string;
-  };
-  is_admin?: boolean;
-  is_bot?: boolean;
 }
 
 export interface Board {
@@ -49,18 +56,7 @@ export interface Board {
   name: string;
   description?: string;
   categories?: string[];
-}
-
-export interface PollOption {
-  id: string;
-  text: string;
-  votes: number;
-}
-
-export interface Poll {
-  question: string;
-  options: PollOption[];
-  voted_users: string[];
+  required_achievement?: string; // 접근 제한 조건
 }
 
 export interface Post {
@@ -85,6 +81,35 @@ export interface Post {
   ai_agent_type?: 'news' | 'reddit' | 'wiki';
 }
 
+export interface Profile {
+  id: string;
+  username: string;
+  avatar_url?: string;
+  created_at: string;
+  level: number;
+  exp?: number;
+  active_items?: {
+    name_color?: string;
+    name_style?: 'normal' | 'bold';
+    badge?: string;
+    theme?: string;
+  };
+  is_admin?: boolean;
+  is_bot?: boolean;
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
+}
+
+export interface Poll {
+  question: string;
+  options: PollOption[];
+  voted_users: string[];
+}
+
 export interface Comment {
   id: string;
   post_id: string;
@@ -101,36 +126,33 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  user_id: string; // 수신자
-  type: 'comment' | 'reply' | 'level_up' | 'system' | 'message';
+  user_id: string;
+  type: 'comment' | 'reply' | 'level_up' | 'system' | 'message' | 'achievement' | 'bounty';
   message: string;
-  link: string; // 클릭 시 이동할 경로
+  link: string;
   is_read: boolean;
   created_at: string;
-  from_user?: {
-    username: string;
-    avatar_url?: string;
-  };
 }
 
-// 1:1 대화방 메타데이터
-export interface Conversation {
+export interface AuctionItem {
   id: string;
-  participants: string[]; // [userId1, userId2]
-  last_message: string;
-  last_message_at: string;
-  updated_at: string;
-  unread_counts: { [userId: string]: number };
+  item_name: string;
+  description: string;
+  start_price: number;
+  current_price: number;
+  highest_bidder_id?: string;
+  highest_bidder_name?: string;
+  end_time: string;
+  is_finished: boolean;
 }
 
-// 개별 메시지
-export interface PrivateMessage {
+export interface BalanceGame {
   id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  created_at: string;
-  is_read: boolean;
+  question: string;
+  option_a: string;
+  option_b: string;
+  votes_a: number;
+  votes_b: number;
 }
 
 export interface ShopItem {
@@ -138,7 +160,7 @@ export interface ShopItem {
   name: string;
   description: string;
   price: number;
-  type: 'color' | 'style' | 'badge';
+  type: 'color' | 'style' | 'badge' | 'theme';
   value: string;
   icon: string;
 }
@@ -149,8 +171,7 @@ export interface WikiPage {
   content: string;
   last_updated: string;
   last_editor: string;
-  sources?: string[];
-  external_url?: string; // 외부 사이트 연결용
+  external_url?: string;
   is_external?: boolean;
 }
 
@@ -169,4 +190,22 @@ export interface AiLog {
   target_id: string;
   detail: string;
   timestamp: string;
+}
+
+export interface Conversation {
+  id: string;
+  participants: string[];
+  last_message: string;
+  last_message_at: string;
+  updated_at: string;
+  unread_counts: { [userId: string]: number };
+}
+
+export interface PrivateMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  is_read: boolean;
 }
